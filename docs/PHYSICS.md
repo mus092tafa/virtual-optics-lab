@@ -14,6 +14,7 @@ The solver (`src/physics/optics.ts`) selects the model from what is on the bench
 | He-Ne laser (+ lenses), no slit or object | Gaussian beam optics |
 | Any source + single or double slit | wave optics (Fraunhofer, optionally Fresnel) |
 | Object and slit together | not modelled: the screen says so instead of showing a guess |
+| Michelson interferometer (Section C) | wave optics: interference of two Gaussian beams |
 
 ## 1. Reflection — `reflection.ts`, `surface.ts`
 
@@ -156,13 +157,44 @@ clip the diffracted light.
     W·L/L_s. When this exceeds the fringe spacing the fringes disappear. A small or distant source is
     needed to see white-light fringes, which is why the laser is used for these experiments.
 
-## 9. Rendering
+## 9. Michelson interferometer — `michelson.ts`
+
+The laser beam is split into two arms, reflected by M1 (fixed) and M2 (movable), and recombined on
+the screen. Moving M2 by d from the equal-arm position changes the optical path difference by 2d.
+
+- Each arm delivers a Gaussian beam to the screen. Its radius w, wavefront curvature 1/R and Gouy
+  phase come from the ray-transfer matrix of the unfolded path (laser → expander lens → splitter →
+  mirror → splitter → screen), with path lengths z₁ and z₂ = z₁ + 2d.
+- The screen intensity is two-beam interference, I = |E₁|² + |E₂|² + 2|E₁||E₂| cos Δφ, with
+
+      Δφ = k·2d + (k/2)(ρ₂²/R₂ − ρ₁²/R₁) + k·2α·x + Gouy difference + π
+
+- **Circular fringes.** With the expander lens the beams diverge from two virtual sources one behind
+  the other, 2d apart. Their wavefronts have different curvature, which gives rings obeying
+  2d cos θ = mλ. The rings grow as d → 0.
+- **Straight fringes.** Tilting M2 by α turns its beam by 2α. The virtual sources are then side by
+  side and the fringes are straight, with spacing λz/(2α·s), where s is the distance from the
+  source to M2 and z the distance from the source to the screen. Tilt combined with a path
+  difference gives off-centre, curved fringes.
+- **Fringe counting.** The order at the centre is 2d/λ, so one fringe passes for every λ/2 of mirror
+  travel and λ = 2Δd/N. The fringe counter reports the whole number of fringes passed since reset.
+- **Zero path difference.** One beam is reflected at the outside of the splitter coating and the
+  other at the inside, a phase difference of π. With equal arms and aligned mirrors the screen is
+  therefore dark, and the light returns towards the laser.
+- Assumptions: ideal 50/50 splitter of negligible thickness (so no compensator plate is needed);
+  perfect mirrors; a perfectly coherent laser (contrast does not fall with path difference);
+  paraxial Gaussian beams; the expander lens does not clip the beam. Each beam undergoes one
+  reflection and one transmission at the splitter, so the two have equal amplitude.
+- Not modelled: white-light fringes, the finite coherence length of a multimode He-Ne laser, and
+  dispersion in the splitter glass.
+
+## 10. Rendering
 
 `src/render/screenRenderer.ts` converts the solver's result to pixels: for each screen position it
 takes the calculated irradiance, applies the exposure gain and a display gamma of 2.2. Patterns are
 sampled three times per pixel and averaged in linear light so fine fringes do not alias.
 
-## 10. Known limitations
+## 11. Known limitations
 
 - Paraxial optics throughout: no spherical or chromatic aberration.
 - No vignetting of off-axis object points; no diffraction limit of the lens.
@@ -171,9 +203,9 @@ sampled three times per pixel and averaged in linear light so fine fringes do no
   lenses.
 - An object and a slit in the same light path are not modelled.
 
-## 11. Validation
+## 12. Validation
 
-`npm test` runs 72 tests of the physics layer, including:
+`npm test` runs 82 tests of the physics layer, including:
 
 | Check | Expected |
 | --- | --- |
@@ -191,3 +223,4 @@ sampled three times per pixel and averaged in linear light so fine fringes do no
 | Fresnel model | converges to Fraunhofer in the far field |
 | Extended source | fringe visibility falls as the source grows |
 | Gaussian beam | 1 mrad divergence; focal shift formula; 3× beam expander |
+| Michelson | dark at zero path difference; one fringe per λ/2; λ = 2Δd/N; rings obey 2d cos θ = mλ; tilt fringe spacing |

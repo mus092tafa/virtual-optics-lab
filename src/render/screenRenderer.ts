@@ -76,7 +76,35 @@ export function renderScreen(ctx: CanvasRenderingContext2D, light: ScreenLight |
     case 'image':
       renderImage(ctx, light, viewport)
       return
+    case 'field':
+      renderField(ctx, light, viewport)
+      return
   }
+}
+
+function renderField(
+  ctx: CanvasRenderingContext2D,
+  light: Extract<ScreenLight, { kind: 'field' }>,
+  { size, fov, exposure }: ScreenViewport,
+): void {
+  const pixel = fov / size
+  const gain = (light.level * exposure) / 4
+  const image = ctx.createImageData(size, size)
+  for (let row = 0; row < size; row++) {
+    for (let column = 0; column < size; column++) {
+      // 2 × 2 samples per pixel, averaged in linear light, so fine fringes do not alias.
+      let sum = 0
+      for (let sy = 0; sy < 2; sy++) {
+        const v = (size / 2 - row - 0.25 - 0.5 * sy) * pixel
+        for (let sx = 0; sx < 2; sx++) {
+          sum += light.intensity((column + 0.25 + 0.5 * sx - size / 2) * pixel, v)
+        }
+      }
+      const value = sum * gain
+      writePixel(image.data, 4 * (row * size + column), light.rgb[0] * value, light.rgb[1] * value, light.rgb[2] * value)
+    }
+  }
+  ctx.putImageData(image, 0, 0)
 }
 
 function renderUniform(ctx: CanvasRenderingContext2D, rgb: Rgb, level: number, size: number): void {
@@ -276,6 +304,11 @@ export function intensityProfile(light: ScreenLight | null, fov: number, count: 
   if (light.kind === 'fringes') {
     const { intensity } = light.pattern.sample(-fov / 2 + step / 2, step, count)
     return { values: intensity, axis: light.orientation === 'vertical' ? 'horizontal' : 'vertical' }
+  }
+  if (light.kind === 'field') {
+    const values = new Float32Array(count)
+    for (let i = 0; i < count; i++) values[i] = light.level * light.intensity(-fov / 2 + (i + 0.5) * step, 0)
+    return { values, axis: 'horizontal' }
   }
   if (light.kind === 'spot') {
     const values = new Float32Array(count)

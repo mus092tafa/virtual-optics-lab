@@ -3,16 +3,16 @@
  * Holds only the physical configuration and view settings; everything that is
  * observed is derived from it by the physics layer.
  */
-import { LENS_FOCAL_LENGTHS, MIN_COMPONENT_GAP, POSITION_SNAP, RAIL_LENGTH } from '../physics/constants'
+import { HENE_LINES, LENS_FOCAL_LENGTHS, MIN_COMPONENT_GAP, POSITION_SNAP, RAIL_LENGTH } from '../physics/constants'
 import type { SurfaceSetup } from '../physics/surface'
 import type { BenchComponent, ComponentKind, DiffractionModel } from '../physics/types'
-import { cm, mm } from '../physics/units'
+import { cm, mm, um } from '../physics/units'
 import { DEFAULT_EXPERIMENT, benchPreset, createComponent, surfacePreset } from './presets'
 import type { BenchView, ExperimentId } from './presets'
 import { createStore, useStore } from './store'
 
 export type LabMode = 'experiment' | 'learning' | 'demonstration'
-export type LabSection = 'bench' | 'surface'
+export type LabSection = 'bench' | 'surface' | 'interferometer'
 
 export interface SurfaceState extends SurfaceSetup {
   showNormal: boolean
@@ -20,6 +20,41 @@ export interface SurfaceState extends SurfaceSetup {
   /** Direction of the protractor's 0° line, as a polar angle. */
   protractorAngle: number
 }
+
+/** Michelson interferometer settings (lengths in metres, angles in radians). */
+export interface InterferometerState {
+  lineId: string
+  /** When true the wavelength is hidden from the student ("unknown laser"). */
+  concealed: boolean
+  /** Focal length of the beam-expanding lens; null when removed. */
+  expanderFocalLength: number | null
+  armLength: number
+  splitterToScreen: number
+  /** Micrometer reading of M2: coarse and fine parts of the displacement d. */
+  coarse: number
+  fine: number
+  tiltX: number
+  tiltY: number
+  /** Interference order at the centre when the fringe counter was last reset. */
+  counterReference: number | null
+}
+
+export const DEFAULT_INTERFEROMETER: InterferometerState = {
+  lineId: 'red',
+  concealed: false,
+  expanderFocalLength: cm(2),
+  armLength: cm(15),
+  splitterToScreen: cm(25),
+  coarse: mm(4),
+  fine: 0,
+  tiltX: 0,
+  tiltY: 0,
+  counterReference: null,
+}
+
+export const FINE_RANGE = um(30)
+export const COARSE_RANGE = mm(5)
+export const TILT_RANGE = 1e-3
 
 export interface NotebookResult {
   label: string
@@ -51,6 +86,7 @@ export interface LabState {
   beamZoom: boolean
   diffractionModel: DiffractionModel
   surface: SurfaceState
+  interferometer: InterferometerState
   screenFov: number
   exposure: number
   showProfile: boolean
@@ -66,6 +102,13 @@ const SECTION_OF: Record<ExperimentId, LabSection> = {
   'single-slit': 'bench',
   'double-slit': 'bench',
   tungsten: 'bench',
+  michelson: 'interferometer',
+}
+
+const DEFAULT_OF_SECTION: Record<LabSection, ExperimentId> = {
+  surface: 'reflection',
+  bench: 'convex-lens',
+  interferometer: 'michelson',
 }
 
 const DEFAULT_SURFACE: SurfaceState = {
@@ -90,6 +133,7 @@ function initialState(): LabState {
     beamZoom: false,
     diffractionModel: 'fraunhofer',
     surface: DEFAULT_SURFACE,
+    interferometer: DEFAULT_INTERFEROMETER,
     screenFov: preset.screenFov,
     exposure: 1,
     showProfile: true,
@@ -123,6 +167,7 @@ export function mergeConfiguration(base: LabState, data: unknown): LabState {
     components,
     selectedId: null,
     surface: { ...base.surface, ...(saved.surface ?? {}) },
+    interferometer: { ...base.interferometer, ...(saved.interferometer ?? {}) },
     view: saved.view && saved.view.x1 > saved.view.x0 ? saved.view : base.view,
     notebook: saved.notebook ?? {},
   }
@@ -197,6 +242,9 @@ export const actions = {
     update((state) => {
       const section = SECTION_OF[id]
       const common = { experiment: id, section, revealed: false, selectedId: null, rulerTool: false }
+      if (section === 'interferometer') {
+        return { ...common, interferometer: DEFAULT_INTERFEROMETER, screenFov: mm(40), exposure: 1 }
+      }
       if (section === 'surface') {
         return { ...common, surface: { ...state.surface, ...surfacePreset(id)!, protractorAngle: Math.PI / 2 } }
       }
@@ -223,8 +271,9 @@ export const actions = {
     const state = labStore.get()
     if (state.section === section) return
     // Switch to an experiment that belongs to the section, keeping the layout.
-    const experiment = SECTION_OF[state.experiment] === section ? state.experiment : section === 'surface' ? 'reflection' : 'convex-lens'
-    update({ section, experiment, revealed: false })
+    const experiment = SECTION_OF[state.experiment] === section ? state.experiment : DEFAULT_OF_SECTION[section]
+    // The screen view is shared; give the interferometer a field that shows its fringes.
+    update({ section, experiment, revealed: false, ...(section === 'interferometer' ? { screenFov: mm(40), exposure: 1 } : {}) })
   },
   setMode(mode: LabMode) {
     update({ mode, revealed: false })
@@ -295,6 +344,22 @@ export const actions = {
   },
   updateSurface(patch: Partial<SurfaceState>) {
     update((state) => ({ surface: { ...state.surface, ...patch } }))
+  },
+  updateInterferometer(patch: Partial<InterferometerState>) {
+    update((state) => {
+      const next = { ...state.interferometer, ...patch }
+      next.coarse = Math.min(COARSE_RANGE, Math.max(-COARSE_RANGE, next.coarse))
+      next.fine = Math.min(FINE_RANGE, Math.max(-FINE_RANGE, next.fine))
+      next.tiltX = Math.min(TILT_RANGE, Math.max(-TILT_RANGE, next.tiltX))
+      next.tiltY = Math.min(TILT_RANGE, Math.max(-TILT_RANGE, next.tiltY))
+      return { interferometer: next }
+    })
+  },
+  /** Swaps the laser for one of the He-Ne lines without telling the student which. */
+  useUnknownLaser() {
+    const line = HENE_LINES[Math.floor(Math.random() * HENE_LINES.length)]
+    actions.updateInterferometer({ lineId: line.id, concealed: true, counterReference: null })
+    update({ revealed: false })
   },
   addNotebookRow(row: NotebookRow) {
     update((state) => ({

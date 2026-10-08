@@ -60,6 +60,12 @@ export const MIN_COMPONENT_GAP = mm(5)
 /** Positions snap to the rail's millimetre scale. */
 export const POSITION_SNAP = mm(1)
 
+// --- Michelson interferometer -----------------------------------------------
+export const MICHELSON_LASER_TO_LENS = cm(10)
+export const MICHELSON_LENS_TO_SPLITTER = cm(10)
+/** Focal lengths of the beam-expanding lens. */
+export const EXPANDER_FOCAL_LENGTHS: readonly number[] = [cm(1), cm(2), cm(5)]
+
 // --- Refractive indices (sodium D line, 589 nm, 20 °C) ----------------------
 export interface Material {
   id: string

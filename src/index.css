@@ -1402,3 +1402,109 @@ td .theory {
     transition: none !important;
   }
 }
+
+/* ---------- Michelson interferometer ---------- */
+.interferometer-workspace {
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 400px);
+  grid-template-rows: minmax(300px, 1fr) minmax(210px, 38%);
+}
+
+.interferometer-workspace .screen-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.interferometer-workspace .bottom-row {
+  grid-column: 1;
+}
+
+.michelson-scene {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  background: radial-gradient(ellipse at 50% 45%, #18212c 0%, #0c1117 78%);
+}
+
+.michelson-scene svg {
+  display: block;
+}
+
+.breadboard {
+  fill: rgba(255, 255, 255, 0.015);
+  stroke: var(--line-soft);
+}
+
+.scene-label {
+  font-size: 11px;
+  fill: #c5d1de;
+}
+
+.scene-note {
+  font-size: 10px;
+  fill: var(--faint);
+  font-style: italic;
+}
+
+.splitter-cube {
+  fill: rgba(124, 196, 255, 0.12);
+  stroke: #8fd0ff;
+  stroke-width: 1.2;
+}
+
+.splitter-coating {
+  stroke: #dff1ff;
+  stroke-width: 1.6;
+}
+
+.stage {
+  fill: #2c3742;
+  stroke: #0a0d11;
+}
+
+.stage-arrow {
+  fill: none;
+  stroke: #ffd166;
+  stroke-width: 1.3;
+}
+
+.micrometer {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.micrometer div {
+  background: #0a0e13;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 5px 9px;
+  display: flex;
+  flex-direction: column;
+}
+
+.micrometer span {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--faint);
+}
+
+.micrometer strong {
+  font-family: var(--mono);
+  font-size: 16px;
+  font-weight: 500;
+  color: #ffd166;
+}
+
+@media (max-width: 1080px) {
+  .interferometer-workspace {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+
+  .interferometer-workspace .screen-panel,
+  .interferometer-workspace .bottom-row {
+    grid-column: 1;
+    grid-row: auto;
+  }
+}

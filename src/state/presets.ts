@@ -16,6 +16,7 @@ export type ExperimentId =
   | 'single-slit'
   | 'double-slit'
   | 'tungsten'
+  | 'michelson'
 
 export interface BenchView {
   /** Visible part of the rail, metres. */

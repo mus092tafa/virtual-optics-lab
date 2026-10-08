@@ -8,7 +8,7 @@ blurs; narrow a slit and the diffraction pattern widens.
 ```bash
 npm install
 npm run dev      # start the lab at http://localhost:5173
-npm test         # 72 unit tests of the physics layer
+npm test         # 82 unit tests of the physics layer
 npm run build    # type-check and build for production
 npm run lint
 ```
@@ -33,6 +33,11 @@ panel is the physical setup; the right panel is the light arriving at the screen
 | Double slit | width and centre-to-centre separation, vertical or horizontal |
 | Screen | 12 cm × 12 cm observation plane |
 
+**Section C — Interferometer.** A Michelson interferometer seen from above: He-Ne laser, expander
+lens, beam splitter, fixed mirror M1, and mirror M2 on a micrometer stage with tilt screws. The
+screen shows circular fringes when the mirrors are aligned and straight fringes when M2 is tilted.
+A fringe counter and a motorised scan let students measure the wavelength from λ = 2Δd/N.
+
 ### Experiments
 
 1. Law of reflection
@@ -43,6 +48,7 @@ panel is the physical setup; the right panel is the light arriving at the screen
 6. Single-slit diffraction
 7. Double-slit interference
 8. Tungsten light source
+9. Michelson interferometer: wavelength from fringe counting
 
 Each experiment has a guide and a lab notebook. The notebook turns recorded measurements into a
 result (for example f from do and di, or λ from the fringe spacing) and, on request, compares it
@@ -87,14 +93,15 @@ src/
     gaussianBeam.ts   laser beam propagation (q parameter)    ┐
     diffraction.ts    single slit, Fresnel number & integrals │ wave
     interference.ts   double slit, fringe spacing             │ optics
-    slitPattern.ts    pattern on the screen (mono/polychromatic)┘
+    slitPattern.ts    pattern on the screen (mono/polychromatic)│
+    michelson.ts      two-beam interference in the interferometer┘
     spectrum.ts       Planck spectrum, CIE colour matching
     optics.ts         system solver: bench layout -> light at the screen
     __tests__/        unit tests
   state/          lab state, actions, presets, demonstration sweeps
   education/      experiment definitions and notebook analysis
   render/         rasterises the solver's result onto the screen canvas
-  components/     React UI (bench SVG, screen, panels, Section A)
+  components/     React UI (bench SVG, screen, panels, Sections A and C)
 ```
 
 The data flow is one-directional:

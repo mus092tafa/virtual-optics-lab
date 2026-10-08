@@ -26,7 +26,7 @@ export function BenchWorkspace() {
   // on the bench, the screen and the panels derives from this result.
   const solution = useMemo(() => solveBench(components, { diffractionModel }), [components, diffractionModel])
   const report = useMemo(() => buildReport(solution, components), [solution, components])
-  const context = useMemo(() => ({ components, bench: solution, surface: null }), [components, solution])
+  const context = useMemo(() => ({ components, bench: solution, surface: null, michelson: null }), [components, solution])
 
   const zoom = (factor: number) => {
     const centre = (view.x0 + view.x1) / 2
@@ -80,7 +80,7 @@ export function BenchWorkspace() {
         <OpticalBench solution={solution} />
       </section>
 
-      <ScreenOutput solution={solution} />
+      <ScreenOutput light={solution.screenLight} focus={solution.imaging?.screen} />
 
       <div className="bottom-row">
         <ControlPanel />

@@ -7,11 +7,13 @@ import { laserLine } from '../physics/constants'
 import { slitWidthFromCentralMaximum } from '../physics/diffraction'
 import { wavelengthFromFringeSpacing } from '../physics/interference'
 import { focalLengthFromConjugates, magnification } from '../physics/lenses'
+import { wavelengthFromFringeCount } from '../physics/michelson'
+import type { MichelsonSolution } from '../physics/michelson'
 import type { BenchSolution } from '../physics/optics'
 import { indexFromAngles } from '../physics/refraction'
 import type { SurfaceSolution } from '../physics/surface'
 import type { BenchComponent } from '../physics/types'
-import { cm, degToRad, fromMeters, mm, radToDeg } from '../physics/units'
+import { cm, degToRad, fromMeters, mm, radToDeg, um } from '../physics/units'
 import type { NotebookResult } from '../state/labState'
 import type { ExperimentId } from '../state/presets'
 
@@ -26,6 +28,7 @@ export interface AnalysisContext {
   components: readonly BenchComponent[]
   bench: BenchSolution | null
   surface: SurfaceSolution | null
+  michelson: MichelsonSolution | null
 }
 
 export interface ExperimentDefinition {
@@ -301,6 +304,41 @@ export const EXPERIMENTS: readonly ExperimentDefinition[] = [
     ],
     given: () => [],
     analyze: lensResults,
+  },
+  {
+    id: 'michelson',
+    number: 9,
+    title: 'Michelson Interferometer',
+    short: 'Michelson',
+    goal: 'Measure the wavelength of the laser by counting the fringes that pass while one mirror is moved.',
+    procedure: [
+      'With the expander lens in place and the mirrors aligned, observe the circular fringes on the screen.',
+      'Tilt mirror M2 slightly and watch the rings turn into curved, then straight fringes.',
+      'Re-align the mirrors, note the micrometer reading and reset the fringe counter.',
+      'Move M2 slowly (fine control or "Scan") and count the fringes N that pass the centre. Note the mirror travel Δd.',
+      'Record Δd and N; the notebook computes λ = 2Δd / N.',
+    ],
+    equations: [
+      'path difference = 2d',
+      '2d cos θ = mλ   (circular fringes)',
+      'N = 2Δd / λ   (one fringe per λ/2 of mirror travel)',
+      'fringe spacing ∝ λ / (2α)   (mirror tilted by α)',
+    ],
+    assumptions: [
+      'Ideal 50/50 beam splitter of negligible thickness (no compensator plate needed); mirrors are perfect.',
+      'One beam is reflected at the outside of the splitter coating and the other at the inside, giving a π phase difference: the centre is dark when the arms are equal.',
+      'Each arm carries a paraxial Gaussian beam; the expander lens is thin and does not clip the beam.',
+      'The laser is perfectly coherent: fringe contrast does not fall as the path difference grows.',
+    ],
+    fields: [
+      { key: 'dd', label: 'Δd', unit: 'µm', hint: 'mirror travel' },
+      { key: 'N', label: 'N', unit: 'fringes', hint: 'fringes counted' },
+    ],
+    given: () => [],
+    analyze: (values, context) => [
+      result('λ = 2Δd / N', fromMeters(wavelengthFromFringeCount(um(values.dd), values.N), 'nm'), 'nm',
+        context.michelson ? fromMeters(context.michelson.wavelength, 'nm') : null, 1),
+    ],
   },
 ]
 

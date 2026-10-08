@@ -75,6 +75,9 @@ export function Header() {
           <button className={section === 'bench' ? 'active' : ''} onClick={() => actions.setSection('bench')}>
             B · Optical Bench
           </button>
+          <button className={section === 'interferometer' ? 'active' : ''} onClick={() => actions.setSection('interferometer')}>
+            C · Interferometer
+          </button>
         </nav>
 
         <div className="segmented" role="radiogroup" aria-label="Mode">

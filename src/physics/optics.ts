@@ -84,6 +84,8 @@ export type ScreenLight =
       /** 1/e² radius of laser illumination on the object, if laser-lit. */
       illuminationRadius: number | null
     }
+  /** Arbitrary two-dimensional intensity distribution (e.g. interferometer fringes). */
+  | { kind: 'field'; rgb: Rgb; level: number; intensity(u: number, v: number): number }
   /** Diffraction / interference pattern. */
   | {
       kind: 'fringes'

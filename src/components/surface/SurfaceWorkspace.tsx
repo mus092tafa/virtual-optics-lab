@@ -16,7 +16,7 @@ export function SurfaceWorkspace() {
   const revealed = useLab((s) => s.revealed)
   const showTheory = theoryVisible({ mode, revealed })
   const solution = useMemo(() => solveSurface(surface), [surface])
-  const context = useMemo(() => ({ components: [], bench: null, surface: solution }), [solution])
+  const context = useMemo(() => ({ components: [], bench: null, surface: solution, michelson: null }), [solution])
 
   const normalAngle = surface.surfaceTilt + Math.PI / 2
   // Signed angle of the source from the normal: |δ| < 90° means the front side.

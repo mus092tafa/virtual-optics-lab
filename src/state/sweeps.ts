@@ -5,7 +5,7 @@
 import { RAIL_LENGTH } from '../physics/constants'
 import { imageDistance } from '../physics/lenses'
 import type { BenchComponent } from '../physics/types'
-import { cm, degToRad, mm } from '../physics/units'
+import { cm, degToRad, mm, um } from '../physics/units'
 import { actions, labStore } from './labState'
 import type { ExperimentId } from './presets'
 
@@ -18,6 +18,7 @@ export const SWEEP_LABELS: Record<ExperimentId, string> = {
   'single-slit': 'slit width',
   'double-slit': 'slit separation',
   tungsten: 'lamp intensity',
+  michelson: 'mirror M2 (fine)',
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -59,6 +60,9 @@ export function applySweep(id: ExperimentId, t: number): void {
       if (slits) actions.updateComponent(slits.id, { separation: Math.max(mm(lerp(0.12, 0.6, t)), slits.width + mm(0.02)) })
       break
     }
+    case 'michelson':
+      actions.updateInterferometer({ fine: um(lerp(0, 3, t)) })
+      break
     case 'tungsten': {
       const lamp = find('tungsten')
       if (lamp) actions.updateComponent(lamp.id, { intensity: lerp(0.05, 1, t) })

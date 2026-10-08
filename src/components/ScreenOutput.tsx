@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 import { SCREEN_HALF_SIZE } from '../physics/constants'
-import type { BenchSolution } from '../physics/optics'
+import type { ImagingSolution, ScreenLight } from '../physics/optics'
 import { formatLength, formatNumber, fromMeters, mm } from '../physics/units'
 import { drawGraticule, intensityProfile, renderScreen } from '../render/screenRenderer'
 import { actions, theoryVisible, useLab } from '../state/labState'
@@ -16,8 +16,15 @@ interface Mark {
   v1: number
 }
 
-/** The observation screen: shows the light distribution the bench delivers to it. */
-export function ScreenOutput({ solution }: { solution: BenchSolution }) {
+interface Props {
+  /** Light arriving at the screen, as computed by the physics layer. */
+  light: ScreenLight | null
+  /** Focus state of a geometric image, when there is one. */
+  focus?: ImagingSolution['screen']
+}
+
+/** The observation screen: shows the light distribution the optical system delivers to it. */
+export function ScreenOutput({ light, focus = null }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const fov = useLab((s) => s.screenFov)
   const exposure = useLab((s) => s.exposure)
@@ -25,7 +32,6 @@ export function ScreenOutput({ solution }: { solution: BenchSolution }) {
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
   const showTheory = theoryVisible({ mode, revealed })
-  const light = solution.screenLight
   const [cursor, setCursor] = useState<{ u: number; v: number } | null>(null)
   const [mark, setMark] = useState<Mark | null>(null)
   const dragging = useRef(false)
@@ -70,7 +76,6 @@ export function ScreenOutput({ solution }: { solution: BenchSolution }) {
     : light.kind === 'dark' || light.kind === 'unsupported'
       ? light.reason
       : null
-  const focus = solution.imaging?.screen
 
   return (
     <section className="panel screen-panel" aria-label="Screen output">
