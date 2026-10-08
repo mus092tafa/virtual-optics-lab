@@ -13,6 +13,17 @@ npm run build    # type-check and build for production
 npm run lint
 ```
 
+## Windows desktop app
+
+```bash
+npm run desktop    # build and open the lab in a desktop window
+npm run dist:win   # build release/VirtualOpticsLab-<version>-portable.exe
+```
+
+The portable exe is a single file that runs on 64-bit Windows 10/11 without installation. It is
+not code-signed, so Windows SmartScreen asks for confirmation on first launch (*More info → Run
+anyway*). The desktop shell in `electron/main.cjs` only opens the built web app in a window.
+
 ## The laboratory
 
 **Section A — Reflection and refraction.** A laser ray meets a plane mirror or an interface between
