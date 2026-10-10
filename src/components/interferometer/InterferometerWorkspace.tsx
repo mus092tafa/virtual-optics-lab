@@ -49,7 +49,7 @@ export function InterferometerWorkspace() {
   )
   const rgb = useMemo(() => wavelengthToRgb(line.wavelength), [line.wavelength])
   const light = useMemo<ScreenLight>(() => ({ kind: 'field', rgb, level: 1, intensity: solution.intensity }), [rgb, solution])
-  const context = useMemo(() => ({ components: [], bench: null, surface: null, michelson: solution }), [solution])
+  const context = useMemo(() => ({ components: [], bench: null, surface: null, michelson: solution, prism: null }), [solution])
 
   // The fringe counter reads the number of fringes that have passed the centre since it was reset.
   const needsReference = setup.counterReference === null

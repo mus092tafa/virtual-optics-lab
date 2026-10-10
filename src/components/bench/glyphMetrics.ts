@@ -16,10 +16,16 @@ export function glyphTop(component: BenchComponent, yScale: number): number {
     case 'tungsten':
       return 34
     case 'lens':
+    case 'mirror':
       return (component.aperture / 2) * yScale + 9
     case 'singleSlit':
     case 'doubleSlit':
+    case 'grating':
+    case 'pinhole':
       return SLIT_PLATE_HALF_HEIGHT * yScale + 4
+    case 'polarizer':
+      // Plate plus the axis dial on top of the mount.
+      return SLIT_PLATE_HALF_HEIGHT * yScale * 0.8 + 27
     case 'object':
       return Math.max(component.height * yScale + 4, 14)
     case 'screen':

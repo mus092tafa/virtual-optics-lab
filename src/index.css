@@ -155,7 +155,8 @@ button {
   align-items: center;
   gap: 6px;
   padding: 0 14px 8px;
-  overflow-x: auto;
+  flex-wrap: wrap;
+  row-gap: 5px;
 }
 
 .presets-label {
@@ -414,7 +415,7 @@ input[type='checkbox'] {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 7px;
+  padding: 4px 7px;
   border: 1px solid transparent;
   border-radius: 6px;
   background: transparent;
@@ -685,6 +686,43 @@ input[type='checkbox'] {
 
 .hw-plate {
   fill: #b9c4d0;
+}
+
+.hw-grating-line {
+  stroke: #5b6a7c;
+  stroke-width: 0.8;
+}
+
+.hw-polarizer {
+  fill: rgba(140, 150, 170, 0.55);
+  stroke: #aab7c5;
+  stroke-width: 0.8;
+}
+
+.hw-dial {
+  fill: #1a2028;
+  stroke: #8a97a5;
+  stroke-width: 1;
+}
+
+.hw-dial-axis {
+  stroke: #ffd166;
+  stroke-width: 1.8;
+}
+
+.hw-mirror-back {
+  fill: #2c3742;
+  stroke: #0a0d11;
+}
+
+.hw-mirror-face {
+  fill: none;
+  stroke: #e6edf3;
+  stroke-width: 2.2;
+}
+
+.order-ray {
+  stroke-width: 1.4;
 }
 
 .hw-object-shaft {
@@ -1507,4 +1545,148 @@ td .theory {
     grid-column: 1;
     grid-row: auto;
   }
+}
+
+/* ---------- Notebook: uncertainties, summary, graph ---------- */
+.notebook-field {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+
+.notebook-form .notebook-error {
+  flex-direction: row;
+  align-items: center;
+  gap: 3px;
+  color: var(--faint);
+}
+
+.notebook-form .notebook-error input {
+  width: 52px;
+}
+
+.plus-minus {
+  color: var(--muted);
+}
+
+tfoot td {
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.notebook-graph {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.notebook-plot {
+  margin: 0;
+  flex: 1 1 320px;
+  max-width: 560px;
+}
+
+.notebook-plot svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  background: #0d1218;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+}
+
+.notebook-plot figcaption {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.plot-grid {
+  stroke: var(--line-soft);
+  stroke-width: 1;
+}
+
+.plot-tick {
+  font-size: 10px;
+  font-family: var(--mono);
+  fill: var(--muted);
+}
+
+.plot-label {
+  font-size: 11px;
+  fill: var(--text);
+}
+
+.plot-fit {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.plot-point {
+  fill: #e6edf3;
+  stroke: #0d1218;
+  stroke-width: 2;
+}
+
+.fit-results {
+  margin: 0;
+  flex: 1 1 220px;
+  font-size: 12px;
+}
+
+.fit-results div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2.5px 0;
+  border-bottom: 1px dotted var(--line-soft);
+}
+
+.fit-results dt {
+  color: var(--muted);
+}
+
+.fit-results dd {
+  margin: 0;
+  font-family: var(--mono);
+  text-align: right;
+}
+
+.fit-results dd .theory {
+  display: block;
+}
+
+.student-name {
+  width: 190px;
+  margin-right: auto;
+}
+
+.fit-results .theory {
+  color: #7ee08f;
+  font-size: 11px;
+}
+
+/* ---------- Prism scene ---------- */
+.prism-glass {
+  fill: rgba(124, 196, 255, 0.16);
+  stroke: #8fd0ff;
+  stroke-width: 1.4;
+}
+
+.prism-ray {
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.prism-undeviated {
+  stroke: var(--faint);
+  stroke-width: 1;
+  stroke-dasharray: 5 5;
+}
+
+.prism-label {
+  font-size: 11px;
+  fill: var(--muted);
 }

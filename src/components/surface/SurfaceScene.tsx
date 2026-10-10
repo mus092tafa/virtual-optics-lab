@@ -92,7 +92,8 @@ export function SurfaceScene({ surface, solution, showTheory }: Props) {
   const n1 = material(surface.medium1)
   const n2 = material(surface.medium2)
   const tint = (n: number) => `rgba(88, 166, 255, ${Math.min(0.42, 0.04 + 0.26 * (n - 1))})`
-  const strength = (fraction: number) => Math.max(0.18, Math.sqrt(fraction))
+  // Brightness follows the power in the ray (display gamma only): a ray that carries no power is not drawn.
+  const strength = (fraction: number) => Math.min(1, Math.sqrt(Math.max(0, fraction)))
   const arrow = (to: Vec2, fraction: number, key: string, label: string) => {
     const end = at(to)
     const mid = at(to, radius * 0.55)
@@ -169,8 +170,8 @@ export function SurfaceScene({ surface, solution, showTheory }: Props) {
             transform={`translate(${at(source, radius * 0.5).x}, ${at(source, radius * 0.5).y}) rotate(${-radToDeg(surface.sourceAngle) + 180})`}
             fill={BEAM}
           />
-          {solution.reflected && arrow(solution.reflected, solution.reflectance, 'reflected', showTheory ? 'reflected' : '')}
-          {solution.refracted && arrow(solution.refracted, solution.transmittance, 'refracted', showTheory ? 'refracted' : '')}
+          {solution.reflected && solution.reflectance > 1e-6 && arrow(solution.reflected, solution.reflectance, 'reflected', showTheory ? 'reflected' : '')}
+          {solution.refracted && solution.transmittance > 1e-6 && arrow(solution.refracted, solution.transmittance, 'refracted', showTheory ? 'refracted' : '')}
           <circle cx={cx} cy={cy} r={2.5} fill="#e6edf3" />
 
           {/* Draggable hardware */}

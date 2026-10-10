@@ -7,7 +7,7 @@ import type { BenchComponent } from '../physics/types'
 import { cm, formatLength, fromMeters, mm } from '../physics/units'
 import { actions, theoryVisible, useLab } from '../state/labState'
 import { BEAM_ZOOM_FACTOR, SLIT_PLATE_HALF_HEIGHT, glyphBodyLeft, glyphTop } from './bench/glyphMetrics'
-import { LaserSource, Lens, ObjectTarget, Screen, Slit, TungstenSource } from './bench/glyphs'
+import { Grating, LaserSource, Lens, Mirror, ObjectTarget, Pinhole, Polarizer, Screen, Slit, TungstenSource } from './bench/glyphs'
 import { cssRgb, useElementSize } from './hooks'
 import { componentCaption } from './labels'
 
@@ -145,6 +145,14 @@ export function OpticalBench({ solution }: Props) {
   const ready = width > 0 && height > 0
   // The exaggerated beam shows where the waist is, which the student must find in experiment mode.
   const beamScale = yScale * (beamZoom && showTheory ? BEAM_ZOOM_FACTOR : 1)
+  // Light drawn past a polariser carries only the transmitted fraction (forward pass).
+  const fade: { x: number; before: number; after: number }[] = []
+  for (const stage of solution.polarization?.stages ?? []) {
+    const x = components.find((c) => c.id === stage.id)?.x
+    const previous = fade[fade.length - 1]
+    if (x === undefined || (previous && x <= previous.x)) break
+    fade.push({ x, before: previous?.after ?? 1, after: stage.transmission })
+  }
 
   const polygon = (points: { x: number; y: number }[]) => points.map((p) => `${toPx(p.x).toFixed(1)},${toPy(p.y).toFixed(1)}`).join(' ')
   const line = (segment: Segment, key: string, className: string, color: string) => (
@@ -159,13 +167,7 @@ export function OpticalBench({ solution }: Props) {
     />
   )
 
-  // In experiment mode the light past the first lens is not drawn: where it
-  // converges is exactly what the student has to find with the screen.
   const bundle = overlay.bundle
-    ? showTheory
-      ? overlay.bundle
-      : { upper: overlay.bundle.upper.slice(0, 2), lower: overlay.bundle.lower.slice(0, 2) }
-    : null
 
   return (
     <div className="bench" ref={containerRef}>
@@ -187,6 +189,22 @@ export function OpticalBench({ solution }: Props) {
             <clipPath id="bench-light-clip">
               <rect x={0} y={0} width={width} height={railTop - 4} />
             </clipPath>
+            {fade.length > 0 && (
+              <>
+                <linearGradient id="light-fade" gradientUnits="userSpaceOnUse" x1={0} x2={width} y1={0} y2={0}>
+                  {fade.flatMap((step) => {
+                    const offset = Math.min(1, Math.max(0, toPx(step.x) / width))
+                    return [
+                      <stop key={`${step.x}-a`} offset={offset} stopColor="#fff" stopOpacity={Math.sqrt(step.before)} />,
+                      <stop key={`${step.x}-b`} offset={offset} stopColor="#fff" stopOpacity={Math.sqrt(step.after)} />,
+                    ]
+                  })}
+                </linearGradient>
+                <mask id="light-mask" maskUnits="userSpaceOnUse" x={0} y={0} width={width} height={height}>
+                  <rect x={0} y={0} width={width} height={height} fill="url(#light-fade)" />
+                </mask>
+              </>
+            )}
             <linearGradient id="rail-gradient" x1="0" x2="0" y1="0" y2="1">
               <stop offset="0" stopColor="#5d6875" />
               <stop offset="0.18" stopColor="#3a434e" />
@@ -237,7 +255,7 @@ export function OpticalBench({ solution }: Props) {
           </text>
 
           {/* Light */}
-          <g clipPath="url(#bench-light-clip)" style={{ pointerEvents: 'none' }}>
+          <g clipPath="url(#bench-light-clip)" mask={fade.length > 0 ? 'url(#light-mask)' : undefined} style={{ pointerEvents: 'none' }}>
             {overlay.lampCone && (
               <polygon
                 points={polygon([
@@ -273,7 +291,45 @@ export function OpticalBench({ solution }: Props) {
                 <polygon points={beamPolygon(overlay.beam, toPx, axisY, beamScale, 0.9)} fill={light} />
               </>
             )}
+            {overlay.reflectedBeam && overlay.reflectedBeam.length > 1 && (
+              <>
+                <polygon points={beamPolygon(overlay.reflectedBeam, toPx, axisY, beamScale, 3.5)} fill={light} opacity={0.22} />
+                <polygon points={beamPolygon(overlay.reflectedBeam, toPx, axisY, beamScale, 0.9)} fill={light} />
+              </>
+            )}
+            {overlay.orders &&
+              (overlay.orders.inViewPlane ? (
+                // Each order leaves at its own angle: d sin θ = mλ.
+                overlay.orders.rays.map((ray) => (
+                  <line
+                    key={ray.order}
+                    x1={toPx(overlay.orders!.x)}
+                    y1={axisY}
+                    x2={toPx(overlay.orders!.xEnd)}
+                    y2={toPy(Math.tan(ray.angle) * (overlay.orders!.xEnd - overlay.orders!.x))}
+                    stroke={light}
+                    className="order-ray"
+                    strokeOpacity={Math.sqrt(ray.strength)}
+                  />
+                ))
+              ) : (
+                <line x1={toPx(overlay.orders.x)} x2={toPx(overlay.orders.xEnd)} y1={axisY} y2={axisY} stroke={light} strokeWidth={2} opacity={0.6} />
+              ))}
           </g>
+
+          {/* Mirror: focal point F and centre of curvature C (R = 2f), both on the same side */}
+          {solution.mirror &&
+            [
+              { label: 'F', x: solution.mirror.x - solution.mirror.focalLength },
+              { label: 'C', x: solution.mirror.x - solution.mirror.radius },
+            ].map((mark) => (
+              <g key={mark.label} className="focal-mark">
+                <line x1={toPx(mark.x)} x2={toPx(mark.x)} y1={axisY - 4} y2={axisY + 4} />
+                <text x={toPx(mark.x)} y={axisY + 16} textAnchor="middle">
+                  {mark.label}
+                </text>
+              </g>
+            ))}
 
           {/* Focal points */}
           {sorted.map((component) =>
@@ -351,6 +407,10 @@ export function OpticalBench({ solution }: Props) {
                 {component.kind === 'lens' && <Lens component={component} yScale={yScale} />}
                 {component.kind === 'singleSlit' && <Slit double={false} yScale={yScale} />}
                 {component.kind === 'doubleSlit' && <Slit double yScale={yScale} />}
+                {component.kind === 'grating' && <Grating component={component} yScale={yScale} />}
+                {component.kind === 'pinhole' && <Pinhole yScale={yScale} />}
+                {component.kind === 'polarizer' && <Polarizer component={component} yScale={yScale} />}
+                {component.kind === 'mirror' && <Mirror component={component} yScale={yScale} />}
                 {component.kind === 'object' && <ObjectTarget component={component} yScale={yScale} />}
                 {component.kind === 'screen' && <Screen yScale={yScale} />}
                 <text x={component.kind === 'laser' ? -48 : component.kind === 'tungsten' ? -28 : 0} y={-top - 8} textAnchor="middle" className="component-caption">
@@ -389,6 +449,11 @@ export function OpticalBench({ solution }: Props) {
           {overlay.fan && !overlay.fan.inViewPlane && (
             <text x={toPx(overlay.fan.x) + 10} y={axisY + SLIT_PLATE_HALF_HEIGHT * yScale + 22} className="bench-note">
               pattern spreads ⟂ to this view
+            </text>
+          )}
+          {overlay.orders && !overlay.orders.inViewPlane && (
+            <text x={toPx(overlay.orders.x) + 10} y={axisY + SLIT_PLATE_HALF_HEIGHT * yScale + 22} className="bench-note">
+              orders spread ⟂ to this view
             </text>
           )}
 

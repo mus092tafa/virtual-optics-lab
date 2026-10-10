@@ -44,6 +44,12 @@ export const mm = (value: number): number => toMeters(value, 'mm')
 export const um = (value: number): number => toMeters(value, 'um')
 export const nm = (value: number): number => toMeters(value, 'nm')
 
+/** Spatial frequency given per millimetre (e.g. grating lines/mm) -> per metre. */
+export const perMm = (value: number): number => value / LENGTH_UNITS.mm
+
+/** Spatial frequency in the engine (per metre) -> per millimetre for display. */
+export const toPerMm = (perMeter: number): number => perMeter * LENGTH_UNITS.mm
+
 export function degToRad(degrees: number): number {
   return (degrees * Math.PI) / 180
 }

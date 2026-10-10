@@ -73,6 +73,9 @@ export function renderScreen(ctx: CanvasRenderingContext2D, light: ScreenLight |
     case 'fringes':
       renderFringes(ctx, light, viewport)
       return
+    case 'spots':
+      renderSpots(ctx, light, viewport)
+      return
     case 'image':
       renderImage(ctx, light, viewport)
       return
@@ -134,6 +137,43 @@ function renderSpot(
       const value = amplitude * profile[i] * profile[j]
       writePixel(image.data, 4 * (j * size + i), light.rgb[0] * value, light.rgb[1] * value, light.rgb[2] * value)
     }
+  }
+  ctx.putImageData(image, 0, 0)
+}
+
+function renderSpots(
+  ctx: CanvasRenderingContext2D,
+  light: Extract<ScreenLight, { kind: 'spots' }>,
+  { size, fov, exposure }: ScreenViewport,
+): void {
+  const pixel = fov / size
+  const field = new Float32Array(size * size)
+  const vertical = light.orientation === 'vertical'
+  for (const spot of light.spots) {
+    // A spot smaller than a pixel is spread over the pixel, conserving its power.
+    const along = Math.hypot(spot.radiusAlong, 0.6 * pixel)
+    const across = Math.hypot(spot.radiusAcross, 0.6 * pixel)
+    const amplitude = spot.level * light.level * exposure * (spot.radiusAlong / along) * (spot.radiusAcross / across)
+    // Index range in which the Gaussian is above 1e-8 of its peak.
+    const p0 = Math.max(0, Math.floor((spot.position - 3 * along + fov / 2) / pixel))
+    const p1 = Math.min(size - 1, Math.ceil((spot.position + 3 * along + fov / 2) / pixel))
+    const q0 = Math.max(0, Math.floor((-3 * across + fov / 2) / pixel))
+    const q1 = Math.min(size - 1, Math.ceil((3 * across + fov / 2) / pixel))
+    for (let p = p0; p <= p1; p++) {
+      const u = (p + 0.5 - size / 2) * pixel - spot.position
+      const profile = amplitude * Math.exp((-2 * u * u) / (along * along))
+      for (let q = q0; q <= q1; q++) {
+        const t = (q + 0.5 - size / 2) * pixel
+        // Vertical grating lines spread the orders horizontally; v increases upwards.
+        const index = vertical ? q * size + p : (size - 1 - p) * size + q
+        field[index] += profile * Math.exp((-2 * t * t) / (across * across))
+      }
+    }
+  }
+  const image = ctx.createImageData(size, size)
+  for (let i = 0; i < size * size; i++) {
+    const value = field[i]
+    writePixel(image.data, 4 * i, light.rgb[0] * value, light.rgb[1] * value, light.rgb[2] * value)
   }
   ctx.putImageData(image, 0, 0)
 }
@@ -304,6 +344,19 @@ export function intensityProfile(light: ScreenLight | null, fov: number, count: 
   if (light.kind === 'fringes') {
     const { intensity } = light.pattern.sample(-fov / 2 + step / 2, step, count)
     return { values: intensity, axis: light.orientation === 'vertical' ? 'horizontal' : 'vertical' }
+  }
+  if (light.kind === 'spots') {
+    const values = new Float32Array(count)
+    for (let i = 0; i < count; i++) {
+      const u = -fov / 2 + (i + 0.5) * step
+      let sum = 0
+      for (const spot of light.spots) {
+        const offset = u - spot.position
+        sum += spot.level * Math.exp((-2 * offset * offset) / (spot.radiusAlong * spot.radiusAlong))
+      }
+      values[i] = light.level * sum
+    }
+    return { values, axis: light.orientation === 'vertical' ? 'horizontal' : 'vertical' }
   }
   if (light.kind === 'field') {
     const values = new Float32Array(count)

@@ -4,11 +4,12 @@
  * observed is derived from it by the physics layer.
  */
 import { HENE_LINES, LENS_FOCAL_LENGTHS, MIN_COMPONENT_GAP, POSITION_SNAP, RAIL_LENGTH } from '../physics/constants'
+import { degToRad } from '../physics/units'
 import type { SurfaceSetup } from '../physics/surface'
 import type { BenchComponent, ComponentKind, DiffractionModel } from '../physics/types'
 import { cm, mm, um } from '../physics/units'
-import { DEFAULT_EXPERIMENT, benchPreset, createComponent, surfacePreset } from './presets'
-import type { BenchView, ExperimentId } from './presets'
+import { DEFAULT_EXPERIMENT, DEFAULT_PRISM, benchPreset, createComponent, surfacePreset } from './presets'
+import type { BenchView, ExperimentId, PrismSetting } from './presets'
 import { createStore, useStore } from './store'
 
 export type LabMode = 'experiment' | 'learning' | 'demonstration'
@@ -63,11 +64,21 @@ export interface NotebookResult {
   /** Accepted value, shown only once the student asks for it. */
   theory: number | null
   digits: number
+  /** Uncertainty propagated from the readings; null when it could not be evaluated. */
+  uncertainty: number | null
+  /**
+   * True for a quantity that belongs to one setting of the apparatus (an
+   * angle, a magnification) rather than to the apparatus itself (a focal
+   * length, a wavelength). Such values are not averaged over the rows.
+   */
+  perSetting?: boolean
 }
 
 export interface NotebookRow {
   id: string
   values: Record<string, number>
+  /** Reading uncertainty of each recorded value, in the unit of its field. */
+  uncertainties: Record<string, number>
   results: NotebookResult[]
 }
 
@@ -86,6 +97,7 @@ export interface LabState {
   beamZoom: boolean
   diffractionModel: DiffractionModel
   surface: SurfaceState
+  prism: PrismSetting
   interferometer: InterferometerState
   screenFov: number
   exposure: number
@@ -103,7 +115,17 @@ const SECTION_OF: Record<ExperimentId, LabSection> = {
   'double-slit': 'bench',
   tungsten: 'bench',
   michelson: 'interferometer',
+  'concave-lens': 'bench',
+  grating: 'bench',
+  airy: 'bench',
+  malus: 'bench',
+  brewster: 'surface',
+  prism: 'surface',
+  'concave-mirror': 'bench',
 }
+
+/** Experiments for which demonstration mode starts with the ray diagram on. */
+const RAY_DIAGRAM_EXPERIMENTS: ExperimentId[] = ['convex-lens', 'magnification', 'tungsten', 'concave-lens', 'concave-mirror']
 
 const DEFAULT_OF_SECTION: Record<LabSection, ExperimentId> = {
   surface: 'reflection',
@@ -133,6 +155,7 @@ function initialState(): LabState {
     beamZoom: false,
     diffractionModel: 'fraunhofer',
     surface: DEFAULT_SURFACE,
+    prism: DEFAULT_PRISM,
     interferometer: DEFAULT_INTERFEROMETER,
     screenFov: preset.screenFov,
     exposure: 1,
@@ -167,10 +190,25 @@ export function mergeConfiguration(base: LabState, data: unknown): LabState {
     components,
     selectedId: null,
     surface: { ...base.surface, ...(saved.surface ?? {}) },
+    prism: { ...base.prism, ...(saved.prism ?? {}) },
     interferometer: { ...base.interferometer, ...(saved.interferometer ?? {}) },
     view: saved.view && saved.view.x1 > saved.view.x0 ? saved.view : base.view,
-    notebook: saved.notebook ?? {},
+    notebook: normalizeNotebook(saved.notebook),
   }
+}
+
+/** Notebooks saved before uncertainties existed lack those fields. */
+function normalizeNotebook(notebook: LabState['notebook'] | undefined): LabState['notebook'] {
+  const normalized: LabState['notebook'] = {}
+  for (const [id, rows] of Object.entries(notebook ?? {})) {
+    if (!Array.isArray(rows)) continue
+    normalized[id as ExperimentId] = rows.map((row) => ({
+      ...row,
+      uncertainties: row.uncertainties ?? {},
+      results: (row.results ?? []).map((entry) => ({ ...entry, uncertainty: entry.uncertainty ?? null })),
+    }))
+  }
+  return normalized
 }
 
 export const labStore = createStore<LabState>(loadPersisted())
@@ -199,8 +237,19 @@ export function theoryVisible(state: Pick<LabState, 'mode' | 'revealed'>): boole
 const update = (patch: Partial<LabState> | ((state: LabState) => Partial<LabState>)) =>
   labStore.set((state) => ({ ...state, ...(typeof patch === 'function' ? patch(state) : patch) }))
 
-const SINGLETON_GROUPS: ComponentKind[][] = [['laser', 'tungsten'], ['singleSlit', 'doubleSlit'], ['object'], ['screen']]
+const SINGLETON_GROUPS: ComponentKind[][] = [
+  ['laser', 'tungsten'],
+  ['singleSlit', 'doubleSlit', 'grating', 'pinhole'],
+  ['object'],
+  ['screen'],
+  ['mirror'],
+]
 export const MAX_LENSES = 3
+export const MAX_POLARIZERS = 3
+export const PRISM_APEX_RANGE = { min: degToRad(30), max: degToRad(75) } as const
+export const PRISM_INCIDENCE_RANGE = { min: degToRad(5), max: degToRad(89) } as const
+/** Components of which several may be mounted, with their limit. */
+const KIND_LIMITS: Partial<Record<ComponentKind, number>> = { lens: MAX_LENSES, polarizer: MAX_POLARIZERS }
 
 export function snapPosition(x: number, step = POSITION_SNAP): number {
   return Math.min(RAIL_LENGTH, Math.max(0, Math.round(x / step) * step))
@@ -245,6 +294,7 @@ export const actions = {
       if (section === 'interferometer') {
         return { ...common, interferometer: DEFAULT_INTERFEROMETER, screenFov: mm(40), exposure: 1 }
       }
+      if (id === 'prism') return { ...common, prism: DEFAULT_PRISM }
       if (section === 'surface') {
         return { ...common, surface: { ...state.surface, ...surfacePreset(id)!, protractorAngle: Math.PI / 2 } }
       }
@@ -257,7 +307,7 @@ export const actions = {
         exposure: 1,
         beamZoom: id === 'hene-lens',
         diffractionModel: 'fraunhofer' as const,
-        showRays: state.mode === 'demonstration' && (id === 'convex-lens' || id === 'magnification' || id === 'tungsten'),
+        showRays: state.mode === 'demonstration' && RAY_DIAGRAM_EXPERIMENTS.includes(id),
       }
     })
   },
@@ -284,7 +334,7 @@ export const actions = {
   select(id: string | null) {
     update({ selectedId: id })
   },
-  addComponent(kind: ComponentKind) {
+  addComponent(kind: ComponentKind, overrides: Partial<BenchComponent> = {}) {
     update((state) => {
       let components = state.components
       // Only one source, one aperture, one object and one screen can be mounted.
@@ -296,10 +346,10 @@ export const actions = {
           x = existing.x
           components = components.filter((c) => c.id !== existing.id)
         }
-      } else if (kind === 'lens' && components.filter((c) => c.kind === 'lens').length >= MAX_LENSES) {
+      } else if (components.filter((c) => c.kind === kind).length >= (KIND_LIMITS[kind] ?? Infinity)) {
         return {}
       }
-      const component = createComponent(kind, x ?? freePosition(components, state.view, kind))
+      const component = { ...createComponent(kind, x ?? freePosition(components, state.view, kind)), ...overrides } as BenchComponent
       return { components: [...components, component], selectedId: component.id }
     })
   },
@@ -322,9 +372,11 @@ export const actions = {
       components: state.components.map((c) => (c.id === id ? ({ ...c, ...patch } as BenchComponent) : c)),
     }))
   },
-  /** Swaps a lens for one of unknown focal length (experiment mode). */
+  /** Swaps a lens for one of the same type but unknown focal length (experiment mode). */
   useUnknownLens(id: string) {
-    const focalLength = LENS_FOCAL_LENGTHS[Math.floor(Math.random() * LENS_FOCAL_LENGTHS.length)]
+    const current = labStore.get().components.find((c) => c.id === id)
+    const sign = current?.kind === 'lens' && current.focalLength < 0 ? -1 : 1
+    const focalLength = sign * LENS_FOCAL_LENGTHS[Math.floor(Math.random() * LENS_FOCAL_LENGTHS.length)]
     actions.updateComponent(id, { focalLength, concealed: true } as Partial<BenchComponent>)
     update({ revealed: false })
   },
@@ -344,6 +396,14 @@ export const actions = {
   },
   updateSurface(patch: Partial<SurfaceState>) {
     update((state) => ({ surface: { ...state.surface, ...patch } }))
+  },
+  updatePrism(patch: Partial<PrismSetting>) {
+    update((state) => {
+      const next = { ...state.prism, ...patch }
+      next.apexAngle = Math.min(PRISM_APEX_RANGE.max, Math.max(PRISM_APEX_RANGE.min, next.apexAngle))
+      next.incidenceAngle = Math.min(PRISM_INCIDENCE_RANGE.max, Math.max(PRISM_INCIDENCE_RANGE.min, next.incidenceAngle))
+      return { prism: next }
+    })
   },
   updateInterferometer(patch: Partial<InterferometerState>) {
     update((state) => {

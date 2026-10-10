@@ -2,7 +2,7 @@
  * Centralized physical constants and laboratory hardware parameters.
  * All values are SI (metres, kelvin, ...). Nothing in the UI hard-codes these.
  */
-import { cm, mm, nm } from './units'
+import { cm, mm, nm, perMm } from './units'
 
 // --- Fundamental constants -------------------------------------------------
 export const PLANCK_CONSTANT = 6.62607015e-34 // J s
@@ -48,6 +48,24 @@ export const WHITE_LIGHT_REFERENCE_WAVELENGTH = nm(550)
 // --- Lenses ----------------------------------------------------------------
 export const LENS_FOCAL_LENGTHS: readonly number[] = [cm(5), cm(10), cm(15), cm(20), cm(30)]
 export const DEFAULT_LENS_APERTURE = mm(40)
+
+// --- Spherical mirrors -----------------------------------------------------
+/** Focal-length magnitudes of the mirrors, f = R/2 (positive: concave, negative: convex). */
+export const MIRROR_FOCAL_LENGTHS: readonly number[] = [cm(10), cm(15), cm(20), cm(30)]
+export const DEFAULT_MIRROR_APERTURE = mm(40)
+
+// --- Diffraction grating ---------------------------------------------------
+/** Line densities of the transmission gratings, lines per metre. */
+export const GRATING_LINE_DENSITIES: readonly number[] = [perMm(100), perMm(300), perMm(600)]
+/** Open fraction a/d of one grating period (amplitude grating). */
+export const GRATING_OPEN_FRACTION = 0.3
+/** Width of the ruled area across the lines. */
+export const GRATING_APERTURE = mm(10)
+/** Orders beyond this are not evaluated; their efficiency is negligible. */
+export const GRATING_MAX_ORDER = 12
+
+// --- Circular aperture -----------------------------------------------------
+export const DEFAULT_PINHOLE_DIAMETER = mm(0.2)
 
 // --- Bench hardware --------------------------------------------------------
 export const RAIL_LENGTH = cm(150)

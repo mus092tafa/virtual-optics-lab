@@ -22,9 +22,14 @@ export function criticalAngle(n1: number, n2: number): number | null {
   return Math.asin(n2 / n1)
 }
 
-/** Brewster angle: reflected p-polarised light vanishes. */
+/** Brewster angle: reflected p-polarised light vanishes at tan θ_B = n₂ / n₁. */
 export function brewsterAngle(n1: number, n2: number): number {
   return Math.atan2(n2, n1)
+}
+
+/** Index of the second medium from a measured Brewster angle: n₂ = n₁ tan θ_B. */
+export function indexFromBrewsterAngle(n1: number, angle: number): number {
+  return n1 * Math.tan(angle)
 }
 
 /** Index of the second medium from a measured pair of angles. */

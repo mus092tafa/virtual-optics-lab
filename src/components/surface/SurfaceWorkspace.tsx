@@ -1,11 +1,14 @@
 import { useMemo } from 'react'
 import { MATERIALS } from '../../physics/constants'
 import { solveSurface } from '../../physics/surface'
+import type { RayPolarization } from '../../physics/surface'
 import { degToRad, formatAngle, formatNumber, radToDeg } from '../../physics/units'
 import { actions, theoryVisible, useLab } from '../../state/labState'
 import { ExperimentPanel } from '../ExperimentPanel'
 import { SurfaceScene } from './SurfaceScene'
 import { MAX_TILT } from './limits'
+
+const POLARIZATION_LABELS: Record<RayPolarization, string> = { unpolarized: 'unpolarised', s: 's', p: 'p' }
 
 const wrap = (angle: number) => Math.atan2(Math.sin(angle), Math.cos(angle))
 
@@ -16,7 +19,8 @@ export function SurfaceWorkspace() {
   const revealed = useLab((s) => s.revealed)
   const showTheory = theoryVisible({ mode, revealed })
   const solution = useMemo(() => solveSurface(surface), [surface])
-  const context = useMemo(() => ({ components: [], bench: null, surface: solution, michelson: null }), [solution])
+  const polarization = surface.polarization ?? 'unpolarized'
+  const context = useMemo(() => ({ components: [], bench: null, surface: solution, michelson: null, prism: null }), [solution])
 
   const normalAngle = surface.surfaceTilt + Math.PI / 2
   // Signed angle of the source from the normal: |δ| < 90° means the front side.
@@ -53,8 +57,19 @@ export function SurfaceWorkspace() {
         value: solution.criticalAngle === null ? 'none (n₁ ≤ n₂)' : hidden(formatAngle(solution.criticalAngle, 2)),
         withheld: !showTheory && solution.criticalAngle !== null,
       },
-      { label: 'Reflected power R', value: `${formatNumber(100 * solution.reflectance, 1)}%` },
-      { label: 'Transmitted power T', value: `${formatNumber(100 * solution.transmittance, 1)}%` },
+      // Detector readings of the two rays, for the chosen polarisation.
+      { label: `Reflected power R (${POLARIZATION_LABELS[polarization]})`, value: `${formatNumber(100 * solution.reflectance, 2)}%` },
+      { label: 'Transmitted power T', value: `${formatNumber(100 * solution.transmittance, 2)}%` },
+      {
+        label: 'Fresnel reflectances Rs · Rp',
+        value: showTheory ? `${formatNumber(100 * (solution.reflectanceS ?? 0), 2)}% · ${formatNumber(100 * (solution.reflectanceP ?? 0), 2)}%` : 'to be determined',
+        withheld: !showTheory,
+      },
+      {
+        label: 'Brewster angle θ_B = tan⁻¹(n₂/n₁)',
+        value: solution.brewsterAngle === null ? '—' : hidden(formatAngle(solution.brewsterAngle, 2)),
+        withheld: !showTheory,
+      },
     )
     if (showTheory && solution.refractedAngle !== null) {
       rows.push({
@@ -140,6 +155,27 @@ export function SurfaceWorkspace() {
                       </option>
                     ))}
                   </select>
+                </div>
+                <div className="control-row">
+                  <label>Polarisation</label>
+                  <div className="chip-group">
+                    {(['unpolarized', 's', 'p'] as const).map((option) => (
+                      <button
+                        key={option}
+                        className={`chip${polarization === option ? ' active' : ''}`}
+                        title={
+                          option === 's'
+                            ? 'Electric field perpendicular to the plane of incidence'
+                            : option === 'p'
+                              ? 'Electric field in the plane of incidence'
+                              : 'Equal mixture of s and p'
+                        }
+                        onClick={() => actions.updateSurface({ polarization: option })}
+                      >
+                        {POLARIZATION_LABELS[option]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="control-row">
                   <span />

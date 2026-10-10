@@ -1,9 +1,9 @@
-import { HENE_LINES, LENS_FOCAL_LENGTHS, RAIL_LENGTH } from '../physics/constants'
+import { GRATING_APERTURE, GRATING_LINE_DENSITIES, HENE_LINES, LENS_FOCAL_LENGTHS, MIRROR_FOCAL_LENGTHS, RAIL_LENGTH } from '../physics/constants'
 import { OBJECT_SHAPES } from '../physics/types'
 import type { BenchComponent, SlitOrientation } from '../physics/types'
-import { cm, formatLength, fromMeters, mm } from '../physics/units'
+import { cm, degToRad, formatAngle, formatLength, formatNumber, fromMeters, mm, radToDeg, toPerMm } from '../physics/units'
 import { actions, theoryVisible, useLab } from '../state/labState'
-import { KIND_NAMES } from './labels'
+import { componentName } from './labels'
 
 interface SliderProps {
   label: string
@@ -27,10 +27,10 @@ function Slider({ label, value, min, max, step, display, onChange }: SliderProps
   )
 }
 
-function OrientationControl({ value, onChange }: { value: SlitOrientation; onChange(value: SlitOrientation): void }) {
+function OrientationControl({ label = 'Slit orientation', value, onChange }: { label?: string; value: SlitOrientation; onChange(value: SlitOrientation): void }) {
   return (
     <div className="control-row">
-      <label>Slit orientation</label>
+      <label>{label}</label>
       <div className="chip-group">
         {(['vertical', 'horizontal'] as const).map((option) => (
           <button key={option} className={`chip${value === option ? ' active' : ''}`} onClick={() => onChange(option)}>
@@ -57,7 +57,7 @@ export function ControlPanel() {
     <section className="panel controls" aria-label="Experiment controls">
       <header className="panel-header">
         <h2>Controls</h2>
-        <span className="panel-sub">{component ? KIND_NAMES[component.kind] : 'select a component on the bench'}</span>
+        <span className="panel-sub">{component ? componentName(component) : 'select a component on the bench'}</span>
       </header>
       {!component && (
         <div className="component-list">
@@ -65,7 +65,7 @@ export function ControlPanel() {
             .sort((a, b) => a.x - b.x)
             .map((c) => (
               <button key={c.id} className="list-row" onClick={() => actions.select(c.id)}>
-                <span>{KIND_NAMES[c.kind]}</span>
+                <span>{componentName(c)}</span>
                 <span className="mono">{formatLength(c.x, 'cm', 1)}</span>
               </button>
             ))}
@@ -123,20 +123,37 @@ export function ControlPanel() {
           {component.kind === 'lens' && (
             <>
               <div className="control-row">
+                <label>Type</label>
+                <div className="chip-group">
+                  {([1, -1] as const).map((sign) => (
+                    <button
+                      key={sign}
+                      className={`chip${Math.sign(component.focalLength) === sign ? ' active' : ''}`}
+                      onClick={() => patch({ focalLength: sign * Math.abs(component.focalLength) })}
+                    >
+                      {sign > 0 ? 'convex (converging)' : 'concave (diverging)'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="control-row">
                 <label>Focal length</label>
                 {component.concealed && !showTheory ? (
                   <span className="concealed">unknown — determine it by experiment</span>
                 ) : (
                   <div className="chip-group">
-                    {LENS_FOCAL_LENGTHS.map((f) => (
-                      <button
-                        key={f}
-                        className={`chip${Math.abs(component.focalLength - f) < 1e-9 ? ' active' : ''}`}
-                        onClick={() => patch({ focalLength: f, concealed: false })}
-                      >
-                        {formatLength(f, 'cm', 0)}
-                      </button>
-                    ))}
+                    {LENS_FOCAL_LENGTHS.map((magnitude) => {
+                      const f = Math.sign(component.focalLength) * magnitude
+                      return (
+                        <button
+                          key={magnitude}
+                          className={`chip${Math.abs(component.focalLength - f) < 1e-9 ? ' active' : ''}`}
+                          onClick={() => patch({ focalLength: f, concealed: false })}
+                        >
+                          {formatLength(f, 'cm', 0)}
+                        </button>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -193,6 +210,104 @@ export function ControlPanel() {
                 />
               )}
               <OrientationControl value={component.orientation} onChange={(orientation) => patch({ orientation })} />
+            </>
+          )}
+
+          {component.kind === 'grating' && (
+            <>
+              <div className="control-row">
+                <label>Line density</label>
+                <div className="chip-group">
+                  {GRATING_LINE_DENSITIES.map((density) => (
+                    <button
+                      key={density}
+                      className={`chip${Math.abs(component.lineDensity - density) < 1e-6 ? ' active' : ''}`}
+                      onClick={() => patch({ lineDensity: density })}
+                    >
+                      {formatNumber(toPerMm(density), 0)} lines/mm
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <Slider
+                label="Open width"
+                value={fromMeters(component.aperture, 'mm')}
+                min={0.5}
+                max={fromMeters(GRATING_APERTURE, 'mm')}
+                step={0.5}
+                display={formatLength(component.aperture, 'mm', 1)}
+                onChange={(value) => patch({ aperture: mm(value) })}
+              />
+              <OrientationControl label="Line orientation" value={component.orientation} onChange={(orientation) => patch({ orientation })} />
+            </>
+          )}
+
+          {component.kind === 'pinhole' && (
+            <Slider
+              label="Diameter D"
+              value={fromMeters(component.diameter, 'mm')}
+              min={0.05}
+              max={0.5}
+              step={0.005}
+              display={formatLength(component.diameter, 'mm', 3)}
+              onChange={(value) => patch({ diameter: mm(value) })}
+            />
+          )}
+
+          {component.kind === 'polarizer' && (
+            <Slider
+              label="Axis angle"
+              value={Number(radToDeg(component.angle).toFixed(1))}
+              min={0}
+              max={180}
+              step={1}
+              display={formatAngle(component.angle, 0)}
+              onChange={(value) => patch({ angle: degToRad(value) })}
+            />
+          )}
+
+          {component.kind === 'mirror' && (
+            <>
+              <div className="control-row">
+                <label>Type</label>
+                <div className="chip-group">
+                  {([1, -1] as const).map((sign) => (
+                    <button
+                      key={sign}
+                      className={`chip${Math.sign(component.focalLength) === sign ? ' active' : ''}`}
+                      onClick={() => patch({ focalLength: sign * Math.abs(component.focalLength) })}
+                    >
+                      {sign > 0 ? 'concave (converging)' : 'convex (diverging)'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="control-row">
+                <label>Focal length</label>
+                <div className="chip-group">
+                  {MIRROR_FOCAL_LENGTHS.map((magnitude) => {
+                    const f = Math.sign(component.focalLength) * magnitude
+                    return (
+                      <button
+                        key={magnitude}
+                        className={`chip${Math.abs(component.focalLength - f) < 1e-9 ? ' active' : ''}`}
+                        onClick={() => patch({ focalLength: f })}
+                      >
+                        {formatLength(f, 'cm', 0)}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+              <Slider
+                label="Aperture ⌀"
+                value={fromMeters(component.aperture, 'mm')}
+                min={5}
+                max={50}
+                step={1}
+                display={formatLength(component.aperture, 'mm', 0)}
+                onChange={(value) => patch({ aperture: mm(value) })}
+              />
             </>
           )}
 

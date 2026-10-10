@@ -4,6 +4,8 @@
  *
  * To add a new component type, add its interface here and teach
  * `optics.ts` (the system solver) how it acts on the light.
+ *
+ * A lens with a negative focal length is a diverging (concave) lens.
  */
 
 export type SlitOrientation = 'vertical' | 'horizontal'
@@ -53,6 +55,36 @@ export interface DoubleSlitComponent extends ComponentBase {
   orientation: SlitOrientation
 }
 
+export interface GratingComponent extends ComponentBase {
+  kind: 'grating'
+  /** Lines per metre; the period is d = 1 / lineDensity. */
+  lineDensity: number
+  /** Width of the ruled area that is open to the light, across the lines. */
+  aperture: number
+  /** Direction of the grating lines. */
+  orientation: SlitOrientation
+}
+
+export interface PinholeComponent extends ComponentBase {
+  kind: 'pinhole'
+  /** Diameter of the circular opening. */
+  diameter: number
+}
+
+export interface PolarizerComponent extends ComponentBase {
+  kind: 'polarizer'
+  /** Direction of the transmission axis, radians from the vertical. */
+  angle: number
+}
+
+export interface MirrorComponent extends ComponentBase {
+  kind: 'mirror'
+  /** f = R/2; positive for a concave mirror, negative for a convex one. */
+  focalLength: number
+  /** Clear aperture diameter. */
+  aperture: number
+}
+
 export interface ObjectComponent extends ComponentBase {
   kind: 'object'
   shape: ObjectShape
@@ -71,6 +103,10 @@ export type BenchComponent =
   | LensComponent
   | SingleSlitComponent
   | DoubleSlitComponent
+  | GratingComponent
+  | PinholeComponent
+  | PolarizerComponent
+  | MirrorComponent
   | ObjectComponent
   | ScreenComponent
 

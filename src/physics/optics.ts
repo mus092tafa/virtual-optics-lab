@@ -9,13 +9,24 @@
  *   geometric optics   object + lenses        -> image, magnification, defocus
  *   Gaussian beam      laser + lenses         -> beam radius along the bench
  *   wave optics        source + slit(s)       -> diffraction / interference
+ *                      source + grating       -> diffraction orders / spectra
+ *                      laser + pinhole        -> Airy pattern
+ *
+ * Polarisers only scale the power. A spherical mirror folds the path back
+ * along the rail; it is solved as a thin lens of the same focal length on the
+ * unfolded axis and the drawing geometry is folded back afterwards.
  *
  * It contains no rendering code and knows nothing about pixels.
  */
+import { airyDiscRadius, airyFirstZeroAngle, airyIntensity } from './airy'
 import {
   DEFAULT_LENS_APERTURE,
+  GRATING_APERTURE,
+  GRATING_MAX_ORDER,
+  GRATING_OPEN_FRACTION,
   HENE_WAIST_RADIUS,
   RAIL_LENGTH,
+  SCREEN_HALF_SIZE,
   SLIT_LENGTH,
   TUNGSTEN_TEMPERATURE,
   WHITE_LIGHT_REFERENCE_WAVELENGTH,
@@ -25,9 +36,12 @@ import { centralMaximumWidth, classifyRegime, fresnelNumber, singleSlitMinimumAn
 import type { FieldRegime } from './diffraction'
 import { divergenceHalfAngle, propagateBeam, rayleighRange, wavefrontRadius } from './gaussianBeam'
 import type { BeamPath, BeamSample } from './gaussianBeam'
+import { buildGratingSpectrum, gratingPeriod, highestOrder, laserOrderSpots, orderAngle, orderEfficiency } from './grating'
 import { fringeAngularSpacing, fringeSpacing, fringesInCentralMaximum } from './interference'
 import { principalRays } from './lenses'
 import type { Point, PrincipalRay } from './lenses'
+import { polarizerChain } from './polarization'
+import type { PolarizationState } from './polarization'
 import { lensesBetween, projectOntoScreen, sequentialImaging, systemMatrix, traceRay } from './rayTransfer'
 import type { SequentialImage } from './rayTransfer'
 import { apertureHalfExtent, buildSlitPattern } from './slitPattern'
@@ -38,10 +52,14 @@ import type {
   ApertureComponent,
   BenchComponent,
   DiffractionModel,
+  GratingComponent,
   LaserComponent,
   LensComponent,
+  MirrorComponent,
   ObjectComponent,
   ObjectShape,
+  PinholeComponent,
+  PolarizerComponent,
   ScreenComponent,
   SlitOrientation,
   SourceComponent,
@@ -84,6 +102,15 @@ export type ScreenLight =
       /** 1/e² radius of laser illumination on the object, if laser-lit. */
       illuminationRadius: number | null
     }
+  /** Separate elliptical Gaussian spots in a row (laser diffraction orders). */
+  | {
+      kind: 'spots'
+      rgb: Rgb
+      level: number
+      /** Direction of the grating lines; the spots are spread perpendicular to it. */
+      orientation: SlitOrientation
+      spots: readonly ScreenSpot[]
+    }
   /** Arbitrary two-dimensional intensity distribution (e.g. interferometer fringes). */
   | { kind: 'field'; rgb: Rgb; level: number; intensity(u: number, v: number): number }
   /** Diffraction / interference pattern. */
@@ -96,7 +123,19 @@ export type ScreenLight =
       band: { profile: 'gaussian'; radius: number } | { profile: 'flat'; halfHeight: number; edge: number }
     }
 
+export interface ScreenSpot {
+  /** Centre along the direction in which the spots are spread. */
+  position: number
+  /** 1/e² radii along and across that direction. */
+  radiusAlong: number
+  radiusAcross: number
+  /** Peak irradiance relative to the brightest spot. */
+  level: number
+}
+
 export interface ImagingSolution {
+  /** What forms the image: thin lenses, or a spherical mirror. */
+  element: 'lens' | 'mirror'
   objectX: number
   objectHeight: number
   /** Lens-by-lens thin-lens solution; null when no lens follows the object. */
@@ -149,6 +188,62 @@ export interface DiffractionSolution {
   beamRadiusAtSlit: number | null
 }
 
+export interface GratingOrder {
+  order: number
+  angle: number
+  /** Position on the screen plane, y = L tan θ; null when there is no screen. */
+  position: number | null
+  /** Fraction of the incident power in this order. */
+  efficiency: number
+  /** False when the order lands outside the 12 cm screen. */
+  onScreen: boolean
+}
+
+export interface GratingSolution {
+  lineDensity: number
+  period: number
+  polychromatic: boolean
+  /** Laser wavelength, or the reference wavelength used to quote numbers for white light. */
+  wavelength: number
+  /** Grating-to-screen distance; null when there is no screen. */
+  distance: number | null
+  /** Number of grating lines covered by the light. */
+  illuminatedLines: number
+  /** Orders of the reference wavelength, m ≥ 0 (the pattern is symmetric). */
+  orders: GratingOrder[]
+  beamRadiusAtGrating: number | null
+}
+
+export interface AirySolution {
+  wavelength: number
+  diameter: number
+  /** Geometric aperture-to-screen distance. */
+  distance: number
+  /** Ray-matrix B element aperture -> screen (equals `distance` in free space). */
+  effectiveB: number
+  fresnelNumber: number
+  regime: FieldRegime
+  firstZeroAngle: number | null
+  /** Radius of the first dark ring on the screen, 1.22 λ L / D. */
+  firstDarkRingRadius: number
+  beamRadiusAtAperture: number
+}
+
+export interface PolarizationSolution {
+  /** Fraction of the source power that reaches the screen. */
+  transmission: number
+  /** Polarisers in the order the light meets them, with the cumulative fraction after each. */
+  stages: { id: string; angle: number; transmission: number }[]
+  state: PolarizationState
+}
+
+export interface MirrorSolution {
+  x: number
+  focalLength: number
+  /** Radius of curvature R = 2f. */
+  radius: number
+}
+
 export interface ImageMarker {
   x: number
   height: number
@@ -161,6 +256,10 @@ export interface BenchOverlay {
   lightRgb: Rgb
   /** Gaussian beam envelope (1/e² radius). */
   beam: BeamSample[] | null
+  /** The same beam after reflection at a mirror, travelling back along the rail. */
+  reflectedBeam: BeamSample[] | null
+  /** Diffraction orders leaving a grating. */
+  orders: { x: number; xEnd: number; inViewPlane: boolean; rays: { order: number; angle: number; strength: number }[] } | null
   /** Diffracted light behind a slit, out to the first minimum. */
   fan: { x: number; xEnd: number; halfAngle: number; inViewPlane: boolean } | null
   /** Flood of light leaving the tungsten lamp. */
@@ -186,6 +285,12 @@ export interface BenchSolution {
   imaging: ImagingSolution | null
   beam: BeamSolution | null
   diffraction: DiffractionSolution | null
+  grating: GratingSolution | null
+  airy: AirySolution | null
+  /** Null when no polariser is in the light path. */
+  polarization: PolarizationSolution | null
+  /** Null when no mirror is in the light path. */
+  mirror: MirrorSolution | null
   overlay: BenchOverlay
 }
 
@@ -212,7 +317,17 @@ function byKind<K extends BenchComponent['kind']>(
 }
 
 function emptyOverlay(lightRgb: Rgb): BenchOverlay {
-  return { lightRgb, beam: null, fan: null, lampCone: null, bundle: null, principalRays: [], images: [] }
+  return {
+    lightRgb,
+    beam: null,
+    reflectedBeam: null,
+    orders: null,
+    fan: null,
+    lampCone: null,
+    bundle: null,
+    principalRays: [],
+    images: [],
+  }
 }
 
 /** Approximate fraction of the bounding square h × h that a shape fills. */
@@ -244,26 +359,67 @@ export function solveBench(components: readonly BenchComponent[], options: Solve
       imaging: null,
       beam: null,
       diffraction: null,
+      grating: null,
+      airy: null,
+      polarization: null,
+      mirror: null,
       overlay: emptyOverlay([0, 0, 0]),
     }
   }
 
   const wavelength = source.kind === 'laser' ? laserLine(source.lineId).wavelength : null
   const lightRgb = wavelength !== null ? wavelengthToRgb(wavelength) : blackbodyRgb(TUNGSTEN_TEMPERATURE)
-  const power = source.kind === 'tungsten' ? source.intensity : 1
   const notices: Notice[] = []
   const overlay = emptyOverlay(lightRgb)
 
-  // Light travels in +x. Only components between the source and the screen
-  // (or the end of the rail) are in the optical path.
-  const screenInPath = screen !== null && screen.x > source.x
-  const pathEnd = screenInPath ? screen.x : RAIL_LENGTH
+  // Light travels in +x. A mirror sends it back; the rest of the solver then
+  // works on the unfolded axis, where the mirror is a thin lens at x_m and a
+  // point at x in the reflected light sits at 2 x_m − x.
+  const mirror: MirrorComponent | null =
+    byKind(components, 'mirror')
+      .filter((c) => c.x > source.x)
+      .sort((a, b) => a.x - b.x)[0] ?? null
+  const unfold = (x: number): number => (mirror ? 2 * mirror.x - x : x)
+  const screenInPath = screen !== null && (mirror ? screen.x < mirror.x : screen.x > source.x)
+  // Only components between the source and the screen (or the end of the
+  // rail) are in the optical path.
+  const pathEnd = screenInPath ? unfold(screen.x) : mirror ? unfold(0) : RAIL_LENGTH
+  const forwardEnd = mirror ? mirror.x : pathEnd
+  const target: ScreenComponent | null = screenInPath ? { ...screen, x: pathEnd } : null
   const inPath = <T extends BenchComponent>(list: T[]): T[] =>
-    list.filter((c) => c.x > source.x && c.x < pathEnd).sort((a, b) => a.x - b.x)
-  const lenses: LensComponent[] = inPath(byKind(components, 'lens'))
+    list.filter((c) => c.x > source.x && c.x < forwardEnd).sort((a, b) => a.x - b.x)
+  const realLenses: LensComponent[] = inPath(byKind(components, 'lens'))
   const object: ObjectComponent | null = inPath(byKind(components, 'object'))[0] ?? null
   const slit: ApertureComponent | null =
     inPath<ApertureComponent>([...byKind(components, 'singleSlit'), ...byKind(components, 'doubleSlit')])[0] ?? null
+  const grating: GratingComponent | null = inPath(byKind(components, 'grating'))[0] ?? null
+  const pinhole: PinholeComponent | null = inPath(byKind(components, 'pinhole'))[0] ?? null
+  const apertures = [slit, grating, pinhole].filter((c) => c !== null)
+
+  // Ideal polarisers change the power only. With a mirror the light meets
+  // those in front of it a second time on the way back to the screen.
+  const polarizers: PolarizerComponent[] = inPath(byKind(components, 'polarizer'))
+  if (mirror) {
+    const returnEnd = screenInPath ? screen.x : -Infinity
+    polarizers.push(
+      ...byKind(components, 'polarizer')
+        .filter((c) => c.x < mirror.x && c.x > returnEnd)
+        .sort((a, b) => b.x - a.x),
+    )
+  }
+  let polarization: PolarizationSolution | null = null
+  if (polarizers.length > 0) {
+    const chain = polarizerChain(polarizers.map((c) => c.angle))
+    polarization = {
+      transmission: chain.transmission,
+      stages: polarizers.map((c, index) => ({ id: c.id, angle: c.angle, transmission: chain.stages[index] })),
+      state: chain.state,
+    }
+    if (chain.transmission < 1e-9) {
+      notices.push({ level: 'info', text: 'Crossed polarisers: no light is transmitted.' })
+    }
+  }
+  const power = (source.kind === 'tungsten' ? source.intensity : 1) * (polarization?.transmission ?? 1)
 
   const solution: BenchSolution = {
     regime: 'illumination',
@@ -275,18 +431,29 @@ export function solveBench(components: readonly BenchComponent[], options: Solve
     imaging: null,
     beam: null,
     diffraction: null,
+    grating: null,
+    airy: null,
+    polarization,
+    mirror: mirror ? { x: mirror.x, focalLength: mirror.focalLength, radius: 2 * mirror.focalLength } : null,
     overlay,
   }
 
   if (!screen) {
     notices.push({ level: 'info', text: 'Place the screen on the bench to observe the light.' })
   } else if (!screenInPath) {
-    notices.push({ level: 'warning', text: 'The screen is behind the light source; no light reaches it.' })
+    notices.push({
+      level: 'warning',
+      text: mirror
+        ? 'The screen is behind the mirror; no light reaches it. Place it in front of the mirror to catch the reflected light.'
+        : 'The screen is behind the light source; no light reaches it.',
+    })
   }
   const darkScreen = (reason: string): ScreenLight | null =>
-    screen ? { kind: 'dark', reason: screenInPath ? reason : 'The screen is behind the light source.' } : null
+    screen
+      ? { kind: 'dark', reason: screenInPath ? reason : mirror ? 'The screen is behind the mirror.' : 'The screen is behind the light source.' }
+      : null
 
-  const firstBlocker = Math.min(pathEnd, lenses[0]?.x ?? Infinity, object?.x ?? Infinity, slit?.x ?? Infinity)
+  const firstBlocker = Math.min(forwardEnd, realLenses[0]?.x ?? Infinity, object?.x ?? Infinity, ...apertures.map((c) => c.x))
   if (source.kind === 'tungsten') {
     const half = source.sourceSize / 2
     overlay.lampCone = {
@@ -297,24 +464,65 @@ export function solveBench(components: readonly BenchComponent[], options: Solve
     }
   }
 
-  if (slit && object) {
+  const unsupported = (reason: string, notice: string): BenchSolution => {
     solution.regime = 'unsupported'
     solution.model = 'none'
-    solution.screenLight = screen
-      ? {
-          kind: 'unsupported',
-          reason: 'An object and a slit are both in the light path. This combination is not modelled.',
-        }
-      : null
-    notices.push({
-      level: 'error',
-      text: 'Object and slit together are not modelled. Remove one of them: use the object for imaging experiments, or the slit for diffraction.',
-    })
+    solution.screenLight = screen ? { kind: 'unsupported', reason } : null
+    notices.push({ level: 'error', text: notice })
     return solution
   }
 
+  if (mirror) {
+    // Light in front of the mirror passes every element twice; only free
+    // space, an object and polarisers are modelled there.
+    const returnEnd = screenInPath ? screen.x : 0
+    const doublePass = components.some(
+      (c) =>
+        (c.kind === 'lens' || c.kind === 'singleSlit' || c.kind === 'doubleSlit' || c.kind === 'grating' || c.kind === 'pinhole') &&
+        c.x < mirror.x &&
+        c.x > Math.min(source.x, returnEnd),
+    )
+    if (doublePass) {
+      return unsupported(
+        'A lens or aperture stands in front of the mirror. Light passing it twice is not modelled.',
+        'A mirror together with a lens, slit, grating or pinhole in front of it is not modelled. Remove one of them.',
+      )
+    }
+    notices.push({
+      level: 'info',
+      text: 'The mirror sends the light back along the rail. As in the laboratory, it is taken to be tilted very slightly so that the returning light lands on a screen beside the object; the screen does not shadow the incoming light.',
+    })
+  }
+  // On the unfolded axis the mirror is a thin lens of the same focal length.
+  const lenses: LensComponent[] = mirror
+    ? [{ id: mirror.id, kind: 'lens', x: mirror.x, focalLength: mirror.focalLength, aperture: mirror.aperture, concealed: false }]
+    : realLenses
+
+  if (apertures.length > 1) {
+    return unsupported(
+      'More than one slit, grating or pinhole is in the light path. This combination is not modelled.',
+      'Only one diffracting element (slit, double slit, grating or pinhole) is modelled at a time. Remove the others.',
+    )
+  }
+  if (apertures.length === 1 && object) {
+    return unsupported(
+      'An object and a diffracting aperture are both in the light path. This combination is not modelled.',
+      'An object together with a slit, grating or pinhole is not modelled. Remove one of them: use the object for imaging experiments, or the aperture for diffraction.',
+    )
+  }
+
   if (slit) {
-    solveDiffraction({ solution, source, slit, lenses, screen: screenInPath ? screen : null, pathEnd, power, options })
+    solveDiffraction({ solution, source, slit, lenses, screen: target, pathEnd, power, options })
+    if (!solution.screenLight) solution.screenLight = darkScreen('')
+    return solution
+  }
+  if (grating) {
+    solveGrating({ solution, source, grating, lenses, screen: target, pathEnd, power })
+    if (!solution.screenLight) solution.screenLight = darkScreen('')
+    return solution
+  }
+  if (pinhole) {
+    solvePinhole({ solution, source, pinhole, lenses, screen: target, pathEnd, power })
     if (!solution.screenLight) solution.screenLight = darkScreen('')
     return solution
   }
@@ -331,7 +539,7 @@ export function solveBench(components: readonly BenchComponent[], options: Solve
       if (radiusAtLens > lens.aperture / 3) {
         notices.push({
           level: 'warning',
-          text: 'The laser beam is clipped by a lens aperture; the Gaussian-beam model ignores this truncation.',
+          text: `The laser beam is clipped by the ${mirror ? 'mirror' : 'lens'} aperture; the Gaussian-beam model ignores this truncation.`,
         })
         break
       }
@@ -342,7 +550,7 @@ export function solveBench(components: readonly BenchComponent[], options: Solve
       solution.screenLight = screenInPath
         ? { kind: 'spot', rgb: lightRgb, level: power, radius: path.radiusAtEnd }
         : darkScreen('')
-      return solution
+      return foldAtMirror(solution, mirror)
     }
     illuminationRadius = path.radiusAtEnd
     notices.push({
@@ -381,9 +589,45 @@ export function solveBench(components: readonly BenchComponent[], options: Solve
   }
 
   if (luminous) {
-    solveImaging({ solution, luminous, lenses, screen: screenInPath ? screen : null, pathEnd, power, isLamp: !object })
+    solveImaging({ solution, luminous, lenses, screen: target, pathEnd, power, isLamp: !object, element: mirror ? 'mirror' : 'lens' })
     if (!solution.screenLight) solution.screenLight = darkScreen('')
   }
+  return foldAtMirror(solution, mirror)
+}
+
+/**
+ * Maps the drawing geometry computed on the unfolded axis back onto the rail:
+ * everything beyond the mirror plane belongs to the reflected light.
+ */
+function foldAtMirror(solution: BenchSolution, mirror: MirrorComponent | null): BenchSolution {
+  if (!mirror) return solution
+  const { overlay } = solution
+  const fold = (x: number): number => (x > mirror.x ? 2 * mirror.x - x : x)
+  const reflect = (point: Point): Point => ({ x: 2 * mirror.x - point.x, y: point.y })
+  if (overlay.beam) {
+    const samples = overlay.beam
+    overlay.beam = samples.filter((sample) => sample.x <= mirror.x)
+    overlay.reflectedBeam = samples
+      .filter((sample) => sample.x >= mirror.x)
+      .map((sample) => ({ x: fold(sample.x), w: sample.w }))
+      .reverse()
+  }
+  if (overlay.bundle) {
+    overlay.bundle = {
+      upper: overlay.bundle.upper.map((point) => ({ x: fold(point.x), y: point.y })),
+      lower: overlay.bundle.lower.map((point) => ({ x: fold(point.x), y: point.y })),
+    }
+  }
+  // Everything after the reflection, including a virtual image behind the
+  // mirror, lies in the mirrored half of the unfolded axis.
+  overlay.principalRays = overlay.principalRays.map((ray) => ({
+    ...ray,
+    outgoing: { from: reflect(ray.outgoing.from), to: reflect(ray.outgoing.to) },
+    virtualExtension: ray.virtualExtension
+      ? { from: reflect(ray.virtualExtension.from), to: reflect(ray.virtualExtension.to) }
+      : null,
+  }))
+  overlay.images = overlay.images.map((image) => ({ ...image, x: 2 * mirror.x - image.x }))
   return solution
 }
 
@@ -407,9 +651,10 @@ interface ImagingArgs {
   pathEnd: number
   power: number
   isLamp: boolean
+  element: 'lens' | 'mirror'
 }
 
-function solveImaging({ solution, luminous, lenses, screen, pathEnd, power, isLamp }: ImagingArgs): void {
+function solveImaging({ solution, luminous, lenses, screen, pathEnd, power, isLamp, element }: ImagingArgs): void {
   const { overlay, notices } = solution
   const imagingLenses = lensesBetween(lenses, luminous.x, pathEnd)
   // Height of the point used for ray diagrams: the tip of the object.
@@ -422,7 +667,22 @@ function solveImaging({ solution, luminous, lenses, screen, pathEnd, power, isLa
     solution.regime = 'illumination'
     solution.imaging = isLamp
       ? null
-      : { objectX: luminous.x, objectHeight: luminous.height, sequence: null, imageHeight: null, screen: null }
+      : { element, objectX: luminous.x, objectHeight: luminous.height, sequence: null, imageHeight: null, screen: null }
+    // A diffusing surface sends light in every direction: each of its points
+    // lights the whole screen. Drawn from the lit part of the object out to
+    // the full height of the screen.
+    const lit =
+      luminous.illuminationRadius !== null
+        ? { top: luminous.illuminationRadius, bottom: -luminous.illuminationRadius }
+        : luminous.anchor === 'center'
+          ? { top: luminous.height / 2, bottom: -luminous.height / 2 }
+          : { top: luminous.height, bottom: 0 }
+    if (!isLamp) {
+      overlay.bundle = {
+        upper: [{ x: luminous.x, y: lit.top }, { x: pathEnd, y: SCREEN_HALF_SIZE }],
+        lower: [{ x: luminous.x, y: lit.bottom }, { x: pathEnd, y: -SCREEN_HALF_SIZE }],
+      }
+    }
     if (screen) {
       // Diffuse light from an area A falls on the whole screen: E = L A / s².
       // Shown relative to the irradiance a standard lens would deliver at the
@@ -442,6 +702,7 @@ function solveImaging({ solution, luminous, lenses, screen, pathEnd, power, isLa
   const sequence = sequentialImaging(imagingLenses, luminous.x)!
   const imageHeight = sequence.atInfinity ? null : sequence.magnification * tipHeight
   solution.imaging = {
+    element,
     objectX: luminous.x,
     objectHeight: tipHeight,
     sequence,
@@ -501,7 +762,7 @@ function solveImaging({ solution, luminous, lenses, screen, pathEnd, power, isLa
     if (!sequence.isReal) {
       notices.push({
         level: 'info',
-        text: 'The image is virtual: the light leaving the lens diverges, so no sharp image can be caught on a screen.',
+        text: `The image is virtual: the light leaving the ${element} diverges, so no sharp image can be caught on a screen.`,
       })
     }
   }
@@ -663,5 +924,268 @@ function solveDiffraction(args: DiffractionArgs): void {
           halfHeight: (SLIT_LENGTH / 2) * Math.max(Math.abs(magnificationM), 1e-3) + smearWidth / 2,
           edge: Math.max(smearWidth, mm(0.5)),
         },
+  }
+}
+
+interface GratingArgs {
+  solution: BenchSolution
+  source: SourceComponent
+  grating: GratingComponent
+  lenses: LensComponent[]
+  screen: ScreenComponent | null
+  pathEnd: number
+  power: number
+}
+
+function solveGrating({ solution, source, grating, lenses, screen, pathEnd, power }: GratingArgs): void {
+  const { overlay, notices } = solution
+  const period = gratingPeriod(grating.lineDensity)
+  const distance = screen ? screen.x - grating.x : null
+  const inViewPlane = grating.orientation === 'horizontal'
+
+  solution.regime = 'diffraction'
+  solution.model = 'wave optics'
+
+  if (lensesBetween(lenses, grating.x, pathEnd).length > 0) {
+    solution.regime = 'unsupported'
+    solution.model = 'none'
+    solution.screenLight = screen
+      ? {
+          kind: 'unsupported',
+          reason: 'A lens stands behind the grating. The thin-lens model is paraxial and does not hold at the large angles of a grating.',
+        }
+      : null
+    notices.push({
+      level: 'error',
+      text: 'A lens between the grating and the screen is not modelled: grating orders leave at tens of degrees, far outside the paraxial range of the thin-lens model. Place the lens in front of the grating, or remove it.',
+    })
+    return
+  }
+
+  const referenceWavelength = source.kind === 'laser' ? laserLine(source.lineId).wavelength : WHITE_LIGHT_REFERENCE_WAVELENGTH
+  const orders = (count: number) => {
+    const list = []
+    for (let order = 0; order <= count; order++) {
+      const angle = orderAngle(order, period, referenceWavelength)
+      if (angle === null) break
+      const position = distance === null ? null : distance * Math.tan(angle)
+      list.push({
+        order,
+        angle,
+        position,
+        efficiency: orderEfficiency(order, GRATING_OPEN_FRACTION),
+        onScreen: position !== null && Math.abs(position) <= SCREEN_HALF_SIZE,
+      })
+    }
+    return list
+  }
+  const reported = orders(Math.min(GRATING_MAX_ORDER, highestOrder(period, referenceWavelength)))
+  overlay.orders = {
+    x: grating.x,
+    xEnd: pathEnd,
+    inViewPlane,
+    rays: reported.flatMap((entry) => {
+      const strength = entry.efficiency / reported[0].efficiency
+      return entry.order === 0
+        ? [{ order: 0, angle: 0, strength }]
+        : [
+            { order: entry.order, angle: entry.angle, strength },
+            { order: -entry.order, angle: -entry.angle, strength },
+          ]
+    }),
+  }
+
+  if (source.kind === 'laser') {
+    const toGrating = propagateBeam(lenses, referenceWavelength, HENE_WAIST_RADIUS, source.x, grating.x)
+    const radius = toGrating.radiusAtEnd
+    const illuminatedLines = (2 * radius) / period
+    solution.beam = beamSolution(source, toGrating, null)
+    overlay.beam = toGrating.samples
+    solution.grating = {
+      lineDensity: grating.lineDensity,
+      period,
+      polychromatic: false,
+      wavelength: referenceWavelength,
+      distance,
+      illuminatedLines,
+      orders: reported,
+      beamRadiusAtGrating: radius,
+    }
+    if (grating.aperture < 3 * radius) {
+      notices.push({
+        level: 'warning',
+        text: 'The laser beam is wider than the open part of the grating. The model ignores this truncation of the beam.',
+      })
+    }
+    if (illuminatedLines < 10) {
+      notices.push({
+        level: 'warning',
+        text: `The beam covers only about ${illuminatedLines.toFixed(0)} grating lines. The model treats each order as a copy of the beam, which requires many lines.`,
+      })
+    }
+    if (!screen || distance === null) return
+    const spots = laserOrderSpots({
+      period,
+      wavelength: referenceWavelength,
+      openFraction: GRATING_OPEN_FRACTION,
+      q: toGrating.qEnd,
+      distance,
+      maxOrder: GRATING_MAX_ORDER,
+    })
+    solution.screenLight = {
+      kind: 'spots',
+      rgb: overlay.lightRgb,
+      level: power,
+      orientation: grating.orientation,
+      spots: spots.map((spot) => ({
+        position: spot.position,
+        radiusAlong: spot.radiusAlong,
+        radiusAcross: spot.radiusAcross,
+        level: spot.level,
+      })),
+    }
+    return
+  }
+
+  const [, sourceB, , sourceD] = systemMatrix(lenses, source.x, grating.x)
+  const radiusOfCurvature = Math.abs(sourceD) < 1e-12 ? Infinity : sourceB / sourceD
+  solution.grating = {
+    lineDensity: grating.lineDensity,
+    period,
+    polychromatic: true,
+    wavelength: referenceWavelength,
+    distance,
+    illuminatedLines: grating.aperture / period,
+    orders: reported,
+    beamRadiusAtGrating: null,
+  }
+  notices.push({
+    level: 'info',
+    text: 'Tungsten light is broadband: the grating sends each wavelength to its own angle, so every order except the zeroth is a spectrum. Its sharpness is limited by the open width of the grating and by the size of the lamp aperture.',
+  })
+  if (!screen || distance === null) return
+
+  const pattern = buildGratingSpectrum({
+    period,
+    openFraction: GRATING_OPEN_FRACTION,
+    lines: blackbodySpectrum(TUNGSTEN_TEMPERATURE, 100),
+    distance,
+    aperture: grating.aperture,
+    referenceAperture: GRATING_APERTURE,
+    wavefrontRadius: radiusOfCurvature,
+    sourceB,
+    sourceSize: source.sourceSize,
+    power,
+    maxOrder: GRATING_MAX_ORDER,
+  })
+  const smear = (source.sourceSize * distance) / Math.max(Math.abs(sourceB), 1e-6)
+  solution.screenLight = {
+    kind: 'fringes',
+    pattern,
+    orientation: grating.orientation,
+    band: {
+      profile: 'flat',
+      halfHeight: (SLIT_LENGTH / 2) * Math.max(Math.abs(pattern.transverseMagnification), 1e-3) + smear / 2,
+      edge: Math.max(smear, mm(0.5)),
+    },
+  }
+}
+
+interface PinholeArgs {
+  solution: BenchSolution
+  source: SourceComponent
+  pinhole: PinholeComponent
+  lenses: LensComponent[]
+  screen: ScreenComponent | null
+  pathEnd: number
+  power: number
+}
+
+function solvePinhole({ solution, source, pinhole, lenses, screen, pathEnd, power }: PinholeArgs): void {
+  const { overlay, notices } = solution
+
+  if (source.kind !== 'laser') {
+    solution.regime = 'unsupported'
+    solution.model = 'none'
+    solution.screenLight = screen
+      ? { kind: 'unsupported', reason: 'The tungsten lamp behind a circular aperture is not modelled. Use the He-Ne laser.' }
+      : null
+    notices.push({
+      level: 'error',
+      text: 'White light from an extended source through a circular aperture is not modelled. Use the He-Ne laser for the circular-aperture experiment.',
+    })
+    return
+  }
+
+  solution.regime = 'diffraction'
+  solution.model = 'wave optics'
+  const wavelength = laserLine(source.lineId).wavelength
+  const radius = pinhole.diameter / 2
+  const toAperture = propagateBeam(lenses, wavelength, HENE_WAIST_RADIUS, source.x, pinhole.x)
+  const lensesAfter = lensesBetween(lenses, pinhole.x, pathEnd)
+  solution.beam = beamSolution(source, toAperture, null)
+  overlay.beam = toAperture.samples
+  const firstZeroAngle = airyFirstZeroAngle(pinhole.diameter, wavelength)
+  overlay.fan = { x: pinhole.x, xEnd: lensesAfter[0]?.x ?? pathEnd, halfAngle: firstZeroAngle ?? Math.PI / 2, inViewPlane: true }
+  if (radius > 0.7 * toAperture.radiusAtEnd) {
+    notices.push({
+      level: 'warning',
+      text: 'The aperture is wider than the uniform part of the laser beam. The model assumes uniform illumination of the aperture.',
+    })
+  }
+  if (!screen) return
+
+  const [A, B] = systemMatrix(lenses, pinhole.x, screen.x)
+  const wavefront = wavefrontRadius(toAperture.qEnd)
+  const magnificationM = A + (Number.isFinite(wavefront) ? B / wavefront : 0)
+  const effectiveDistance = Math.abs(magnificationM) < 1e-12 ? Infinity : B / magnificationM
+  const fresnelNum = Number.isFinite(effectiveDistance)
+    ? fresnelNumber(radius, wavelength, Math.max(Math.abs(effectiveDistance), 1e-12))
+    : 0
+  const regime = classifyRegime(fresnelNum)
+  const absB = Math.abs(B)
+  const freeSpace = lensesAfter.length === 0
+
+  solution.airy = {
+    wavelength,
+    diameter: pinhole.diameter,
+    distance: screen.x - pinhole.x,
+    effectiveB: B,
+    fresnelNumber: fresnelNum,
+    regime,
+    firstZeroAngle,
+    firstDarkRingRadius:
+      freeSpace && firstZeroAngle !== null ? absB * Math.tan(firstZeroAngle) : airyDiscRadius(pinhole.diameter, wavelength, absB),
+    beamRadiusAtAperture: toAperture.radiusAtEnd,
+  }
+
+  if (absB < 1e-9) {
+    solution.screenLight = {
+      kind: 'unsupported',
+      reason: 'The screen is in the image plane of the aperture. The Fraunhofer model does not apply here.',
+    }
+    notices.push({ level: 'error', text: 'Fraunhofer diffraction is undefined at the image plane of the aperture.' })
+    return
+  }
+  if (regime === 'near-field') {
+    notices.push({
+      level: 'error',
+      text: `Fresnel number N_F = ${fresnelNum.toFixed(2)} ≥ 1: the screen is in the near field and the Airy pattern shown is NOT valid here. Move the screen away or use a smaller aperture.`,
+    })
+  } else if (regime === 'marginal') {
+    notices.push({
+      level: 'warning',
+      text: `Fresnel number N_F = ${fresnelNum.toFixed(2)}: the far-field condition N_F ≪ 1 is only marginally met, so the Airy pattern is approximate.`,
+    })
+  }
+
+  solution.screenLight = {
+    kind: 'field',
+    rgb: overlay.lightRgb,
+    level: power,
+    intensity: (u, v) => {
+      const r = Math.hypot(u, v)
+      return airyIntensity(pinhole.diameter, wavelength, freeSpace ? r / Math.hypot(r, B) : r / absB)
+    },
   }
 }

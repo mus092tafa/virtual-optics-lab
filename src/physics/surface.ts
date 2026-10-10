@@ -9,7 +9,10 @@
 import { material } from './constants'
 import { angleFromNormal, dot, reflectVector } from './reflection'
 import type { Vec2 } from './reflection'
-import { criticalAngle, fresnel, refractVector } from './refraction'
+import { brewsterAngle, criticalAngle, fresnel, refractVector } from './refraction'
+
+/** Polarisation of the incident ray relative to the plane of incidence. */
+export type RayPolarization = 'unpolarized' | 's' | 'p'
 
 export interface SurfaceSetup {
   kind: 'mirror' | 'interface'
@@ -21,6 +24,8 @@ export interface SurfaceSetup {
   medium1: string
   /** Medium on the far side (interface only). */
   medium2: string
+  /** s: electric field perpendicular to the plane of incidence; p: in it. Unpolarised when omitted. */
+  polarization?: RayPolarization
 }
 
 export interface SurfaceSolution {
@@ -39,9 +44,14 @@ export interface SurfaceSolution {
   nTransmitted: number | null
   criticalAngle: number | null
   totalInternalReflection: boolean
-  /** Fraction of the incident power in the reflected / refracted ray. */
+  /** Fraction of the incident power in the reflected / refracted ray, for the chosen polarisation. */
   reflectance: number
   transmittance: number
+  /** Fresnel power reflectances of the two polarisations (interface only). */
+  reflectanceS: number | null
+  reflectanceP: number | null
+  /** Angle of incidence at which reflected p-polarised light vanishes (interface only). */
+  brewsterAngle: number | null
 }
 
 export function surfaceNormal(surfaceTilt: number): Vec2 {
@@ -75,6 +85,9 @@ export function solveSurface(setup: SurfaceSetup): SurfaceSolution {
       totalInternalReflection: false,
       reflectance: reflected ? 1 : 0,
       transmittance: 0,
+      reflectanceS: null,
+      reflectanceP: null,
+      brewsterAngle: null,
     }
   }
 
@@ -85,6 +98,8 @@ export function solveSurface(setup: SurfaceSetup): SurfaceSolution {
   const reflected = reflectVector(incident, facing)
   const refracted = refractVector(incident, facing, nIncident, nTransmitted)
   const coefficients = fresnel(nIncident, nTransmitted, incidentAngle)
+  const reflectance =
+    setup.polarization === 's' ? coefficients.Rs : setup.polarization === 'p' ? coefficients.Rp : coefficients.R
   return {
     normal,
     incident,
@@ -98,7 +113,10 @@ export function solveSurface(setup: SurfaceSetup): SurfaceSolution {
     nTransmitted,
     criticalAngle: criticalAngle(nIncident, nTransmitted),
     totalInternalReflection: refracted === null,
-    reflectance: coefficients.R,
-    transmittance: coefficients.T,
+    reflectance,
+    transmittance: 1 - reflectance,
+    reflectanceS: coefficients.Rs,
+    reflectanceP: coefficients.Rp,
+    brewsterAngle: brewsterAngle(nIncident, nTransmitted),
   }
 }

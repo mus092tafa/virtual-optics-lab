@@ -3,7 +3,8 @@
  * Each glyph is drawn around the origin: x = 0 is the component's optical
  * plane, y = 0 the optical axis. `yScale` is pixels per metre vertically.
  */
-import { SCREEN_HALF_SIZE } from '../../physics/constants'
+import { GRATING_APERTURE, SCREEN_HALF_SIZE } from '../../physics/constants'
+import { radToDeg } from '../../physics/units'
 import type { BenchComponent } from '../../physics/types'
 import { cssRgb } from '../hooks'
 import { SLIT_PLATE_HALF_HEIGHT } from './glyphMetrics'
@@ -51,8 +52,12 @@ export function TungstenSource({ component, yScale }: GlyphProps<'tungsten'>) {
 export function Lens({ component, yScale }: GlyphProps<'lens'>) {
   const half = (component.aperture / 2) * yScale
   // Stronger lenses are drawn with more curvature.
-  const bulge = Math.min(15, 4 + 0.45 / component.focalLength)
-  const path = `M 0 ${-half} Q ${bulge * 2} 0 0 ${half} Q ${-bulge * 2} 0 0 ${-half} Z`
+  const bulge = Math.min(15, 4 + 0.45 / Math.abs(component.focalLength))
+  // Biconvex for a converging lens; biconcave (thin in the middle) for a diverging one.
+  const path =
+    component.focalLength > 0
+      ? `M 0 ${-half} Q ${bulge * 2} 0 0 ${half} Q ${-bulge * 2} 0 0 ${-half} Z`
+      : `M ${-bulge * 0.5 - 2} ${-half} L ${bulge * 0.5 + 2} ${-half} Q ${2 - bulge * 0.5} 0 ${bulge * 0.5 + 2} ${half} L ${-bulge * 0.5 - 2} ${half} Q ${bulge * 0.5 - 2} 0 ${-bulge * 0.5 - 2} ${-half} Z`
   return (
     <g>
       <rect x={-6} y={-half - 7} width={12} height={7} rx={2} className="hw-metal" />
@@ -98,6 +103,68 @@ export function Screen({ yScale }: { yScale: number }) {
     <g>
       <rect x={0} y={-half - 3} width={7} height={2 * half + 6} rx={1.5} className="hw-screen-back" />
       <rect x={-2} y={-half} width={4} height={2 * half} className="hw-screen-face" />
+    </g>
+  )
+}
+
+export function Grating({ component, yScale }: GlyphProps<'grating'>) {
+  const half = SLIT_PLATE_HALF_HEIGHT * yScale
+  // The ruled area is to scale; the lines themselves are far below one pixel
+  // and are drawn symbolically.
+  const ruled = Math.max(3, (Math.min(component.aperture, GRATING_APERTURE) / 2) * yScale)
+  const lines = []
+  for (let y = -ruled; y <= ruled + 0.01; y += Math.max(2, ruled / 5)) {
+    lines.push(<line key={y.toFixed(2)} x1={-2.5} x2={2.5} y1={y} y2={y} className="hw-grating-line" />)
+  }
+  return (
+    <g>
+      <rect x={-5} y={-half - 4} width={10} height={2 * half + 8} rx={2} className="hw-frame" />
+      <rect x={-2.5} y={-half} width={5} height={half - ruled} className="hw-plate" />
+      <rect x={-2.5} y={ruled} width={5} height={half - ruled} className="hw-plate" />
+      <rect x={-2.5} y={-ruled} width={5} height={2 * ruled} className="hw-glass" />
+      {lines}
+    </g>
+  )
+}
+
+export function Pinhole({ yScale }: { yScale: number }) {
+  const half = SLIT_PLATE_HALF_HEIGHT * yScale
+  // The opening is drawn symbolically; real diameters are far below one pixel.
+  return (
+    <g>
+      <rect x={-5} y={-half - 4} width={10} height={2 * half + 8} rx={2} className="hw-frame" />
+      <rect x={-2.5} y={-half} width={5} height={half - 1.5} className="hw-plate" />
+      <rect x={-2.5} y={1.5} width={5} height={half - 1.5} className="hw-plate" />
+    </g>
+  )
+}
+
+export function Polarizer({ component, yScale }: GlyphProps<'polarizer'>) {
+  const half = SLIT_PLATE_HALF_HEIGHT * yScale * 0.8
+  // A small dial on the mount shows the direction of the transmission axis as
+  // seen looking along the light (0° = vertical).
+  const dial = -half - 16
+  return (
+    <g>
+      <rect x={-5} y={-half - 4} width={10} height={2 * half + 8} rx={2} className="hw-frame" />
+      <rect x={-2} y={-half} width={4} height={2 * half} className="hw-polarizer" />
+      <circle cx={0} cy={dial} r={9} className="hw-dial" />
+      <line x1={0} x2={0} y1={-8} y2={8} transform={`translate(0, ${dial}) rotate(${radToDeg(component.angle)})`} className="hw-dial-axis" />
+    </g>
+  )
+}
+
+export function Mirror({ component, yScale }: GlyphProps<'mirror'>) {
+  const half = (component.aperture / 2) * yScale
+  // The reflecting surface faces the light (−x). Sagitta drawn from the real
+  // radius of curvature R = 2f, exaggerated just enough to be visible.
+  const sag = Math.max(4, Math.min(14, (half * half) / (2 * Math.abs(2 * component.focalLength) * yScale) * 6))
+  const depth = component.focalLength > 0 ? sag : -sag
+  const surface = `M ${-depth} ${-half} Q ${depth} 0 ${-depth} ${half}`
+  return (
+    <g>
+      <path d={`${surface} L 9 ${half} L 9 ${-half} Z`} className="hw-mirror-back" />
+      <path d={surface} className="hw-mirror-face" />
     </g>
   )
 }

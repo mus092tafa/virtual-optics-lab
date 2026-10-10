@@ -5,8 +5,8 @@
 import { TUNGSTEN_TEMPERATURE } from '../physics/constants'
 import type { BenchSolution } from '../physics/optics'
 import type { BenchComponent } from '../physics/types'
-import { formatAngle, formatLength, formatNumber } from '../physics/units'
-import { KIND_NAMES } from './labels'
+import { formatAngle, formatLength, formatNumber, toPerMm } from '../physics/units'
+import { componentName } from './labels'
 
 export interface ReportRow {
   label: string
@@ -22,7 +22,7 @@ export interface ReportSection {
 
 export function buildReport(solution: BenchSolution, components: readonly BenchComponent[]): ReportSection[] {
   const sections: ReportSection[] = []
-  const { source, imaging, beam, diffraction } = solution
+  const { source, imaging, beam, diffraction, grating, airy, polarization, mirror } = solution
 
   const system: ReportRow[] = [{ label: 'Physical model', value: solution.model }]
   if (source?.kind === 'laser') {
@@ -51,11 +51,11 @@ export function buildReport(solution: BenchSolution, components: readonly BenchC
   if (sorted.length > 0) {
     const rows: ReportRow[] = []
     sorted.forEach((component, index) => {
-      rows.push({ label: `${KIND_NAMES[component.kind]} position`, value: formatLength(component.x, 'cm', 1) })
+      rows.push({ label: `${componentName(component)} position`, value: formatLength(component.x, 'cm', 1) })
       const next = sorted[index + 1]
       if (next) {
         rows.push({
-          label: `  ${KIND_NAMES[component.kind]} → ${KIND_NAMES[next.kind]}`,
+          label: `  ${componentName(component)} → ${componentName(next)}`,
           value: formatLength(next.x - component.x, 'cm', 1),
         })
       }
@@ -101,17 +101,28 @@ export function buildReport(solution: BenchSolution, components: readonly BenchC
     }
     if (imaging.screen) {
       rows.push(
-        { label: 'Lens → screen distance', value: formatLength(imaging.screen.distance, 'cm', 2) },
+        { label: `${imaging.element === 'mirror' ? 'Mirror' : 'Lens'} → screen distance`, value: formatLength(imaging.screen.distance, 'cm', 2) },
         { label: 'Picture scale on screen', value: formatNumber(imaging.screen.scale, 3), theory: true },
         { label: 'Blur circle diameter', value: formatLength(imaging.screen.blurDiameter, 'mm', 2), theory: true },
         { label: 'Focus', value: imaging.screen.inFocus ? 'sharp' : 'out of focus', theory: true },
         { label: 'Irradiance / radiance', value: `${imaging.screen.irradiancePerRadiance.toExponential(2)} sr`, theory: true },
       )
     }
-    sections.push({ title: 'Image formation (thin lens)', rows })
+    if (mirror) rows.splice(1, 0, { label: 'Radius of curvature R = 2f', value: formatLength(mirror.radius, 'cm', 1), theory: false })
+    sections.push({ title: imaging.element === 'mirror' ? 'Image formation (spherical mirror)' : 'Image formation (thin lens)', rows })
   }
 
-  if (beam && !diffraction) {
+  if (polarization) {
+    const rows: ReportRow[] = polarization.stages.map((stage, index) => ({
+      label: `After polariser ${index + 1} (axis ${formatAngle(stage.angle, 0)})`,
+      value: `${formatNumber(100 * stage.transmission, 1)}%`,
+    }))
+    // What a photodetector at the screen reads, relative to the unobstructed source.
+    rows.push({ label: 'Relative irradiance at screen', value: `${formatNumber(100 * polarization.transmission, 1)}%` })
+    sections.push({ title: 'Polarisation (detector reading)', rows })
+  }
+
+  if (beam && !diffraction && !grating && !airy) {
     const rows: ReportRow[] = []
     if (beam.radiusAtScreen !== null) {
       rows.push({ label: 'Spot diameter on screen (1/e²)', value: formatLength(2 * beam.radiusAtScreen, 'mm', 3), theory: true })
@@ -151,6 +162,46 @@ export function buildReport(solution: BenchSolution, components: readonly BenchC
     if (d.beamRadiusAtSlit !== null) rows.push({ label: 'Beam radius at slit', value: formatLength(d.beamRadiusAtSlit, 'mm', 3) })
     if (d.polychromatic) rows.push({ label: 'Smear from source size', value: formatLength(d.smearWidth, 'mm', 2), theory: true })
     sections.push({ title: d.kind === 'single' ? 'Single-slit diffraction' : 'Double-slit interference', rows })
+  }
+  if (grating) {
+    const rows: ReportRow[] = [
+      { label: grating.polychromatic ? 'Reference wavelength' : 'Wavelength λ', value: formatLength(grating.wavelength, 'nm', 1) },
+      { label: 'Line density', value: `${formatNumber(toPerMm(grating.lineDensity), 0)} lines/mm` },
+      { label: 'Grating period d', value: formatLength(grating.period, 'um', 3) },
+    ]
+    if (grating.distance !== null) rows.push({ label: 'Grating → screen distance L', value: formatLength(grating.distance, 'cm', 1) })
+    rows.push({ label: 'Lines illuminated', value: formatNumber(grating.illuminatedLines, 0) })
+    for (const entry of grating.orders) {
+      if (entry.order === 0) continue
+      rows.push(
+        { label: `Order ${entry.order}: angle θ`, value: formatAngle(entry.angle, 2), theory: true },
+        {
+          label: `  order ${entry.order}: position y = L tan θ`,
+          value: entry.position === null ? '—' : `${formatLength(entry.position, 'mm', 2)}${entry.onScreen ? '' : ' (off the screen)'}`,
+          theory: true,
+        },
+        { label: `  order ${entry.order}: power relative to order 0`, value: `${formatNumber((100 * entry.efficiency) / grating.orders[0].efficiency, 1)}%`, theory: true },
+      )
+    }
+    sections.push({ title: 'Diffraction grating (d sin θ = mλ)', rows })
+  }
+
+  if (airy) {
+    const rows: ReportRow[] = [
+      { label: 'Wavelength λ', value: formatLength(airy.wavelength, 'nm', 1) },
+      { label: 'Aperture diameter D', value: formatLength(airy.diameter, 'mm', 3) },
+      { label: 'Aperture → screen distance L', value: formatLength(airy.distance, 'cm', 1) },
+    ]
+    if (Math.abs(airy.effectiveB - airy.distance) > 1e-9) {
+      rows.push({ label: 'Effective distance B (with lenses)', value: formatLength(airy.effectiveB, 'cm', 2), theory: true })
+    }
+    rows.push(
+      { label: 'Fresnel number N_F', value: `${airy.fresnelNumber < 0.01 ? airy.fresnelNumber.toExponential(1) : formatNumber(airy.fresnelNumber, 3)} — ${airy.regime}` },
+      { label: 'First dark ring angle θ₁', value: airy.firstZeroAngle === null ? 'none (D < 1.22λ)' : formatAngle(airy.firstZeroAngle, 3), theory: true },
+      { label: 'First dark ring radius 1.22λL/D', value: formatLength(airy.firstDarkRingRadius, 'mm', 2), theory: true },
+      { label: 'Beam radius at aperture', value: formatLength(airy.beamRadiusAtAperture, 'mm', 3) },
+    )
+    sections.push({ title: 'Circular aperture (Airy pattern)', rows })
   }
   return sections
 }

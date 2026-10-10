@@ -26,7 +26,7 @@ export function BenchWorkspace() {
   // on the bench, the screen and the panels derives from this result.
   const solution = useMemo(() => solveBench(components, { diffractionModel }), [components, diffractionModel])
   const report = useMemo(() => buildReport(solution, components), [solution, components])
-  const context = useMemo(() => ({ components, bench: solution, surface: null, michelson: null }), [components, solution])
+  const context = useMemo(() => ({ components, bench: solution, surface: null, michelson: null, prism: null }), [components, solution])
 
   const zoom = (factor: number) => {
     const centre = (view.x0 + view.x1) / 2
@@ -85,7 +85,7 @@ export function BenchWorkspace() {
       <div className="bottom-row">
         <ControlPanel />
         <PhysicsPanel sections={report} notices={solution.notices} />
-        <ExperimentPanel context={context} />
+        <ExperimentPanel context={context} setup={report} />
       </div>
     </main>
   )
