@@ -25,3 +25,6 @@ dist-ssr
 
 # Desktop builds
 release
+
+# graphify knowledge graph (generated; rebuild with `graphify update .`)
+graphify-out
