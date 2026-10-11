@@ -1,0 +1,42 @@
+{
+  "appId": "com.mus092tafa.virtualopticslab.admin",
+  "productName": "Virtual Optics Lab Teacher",
+  "extraMetadata": {
+    "edition": "admin"
+  },
+  "files": [
+    "dist/**",
+    "electron/**",
+    "!electron/__tests__/**",
+    "package.json"
+  ],
+  "directories": {
+    "output": "release/teacher"
+  },
+  "win": {
+    "target": [
+      "portable"
+    ],
+    "signAndEditExecutable": false
+  },
+  "nsis": {
+    "oneClick": true,
+    "perMachine": false,
+    "artifactName": "VirtualOpticsLab-Teacher-${version}-setup.exe"
+  },
+  "portable": {
+    "artifactName": "VirtualOpticsLab-Teacher-${version}-portable.exe"
+  },
+  "fileAssociations": [
+    {
+      "ext": "opticsmaster",
+      "name": "Virtual Optics Lab exam with answer key",
+      "description": "Virtual Optics Lab exam with answer key"
+    },
+    {
+      "ext": "opticsanswers",
+      "name": "Virtual Optics Lab exam answers",
+      "description": "Virtual Optics Lab exam answers"
+    }
+  ]
+}

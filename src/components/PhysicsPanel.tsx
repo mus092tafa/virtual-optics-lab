@@ -11,12 +11,13 @@ interface Props {
 export function PhysicsPanel({ sections, notices }: Props) {
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
+  const examLock = useLab((s) => s.examLock)
   const showTheory = theoryVisible({ mode, revealed })
   return (
     <section className="panel physics" aria-label="Physics">
       <header className="panel-header">
         <h2>Physics</h2>
-        {mode === 'experiment' && (
+        {mode === 'experiment' && !examLock && (
           <button className="chip" onClick={() => actions.setRevealed(!revealed)}>
             {revealed ? 'Hide theory' : 'Reveal theory'}
           </button>

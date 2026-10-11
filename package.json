@@ -6,12 +6,17 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:student": "tsc -b && vite build --mode student --outDir dist-student",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
     "desktop": "npm run build && electron .",
-    "dist:win": "npm run build && electron-builder --win portable --x64"
+    "desktop:student": "npm run build:student && electron . --edition=student",
+    "dist:win:teacher": "npm run build && electron-builder --win portable --x64 --config electron-builder.admin.json",
+    "dist:win:student": "npm run build:student && electron-builder --win portable --x64 --config electron-builder.student.json",
+    "dist:win": "npm run dist:win:teacher && npm run dist:win:student",
+    "dist:win:setup": "npm run build && npm run build:student && electron-builder --win nsis --x64 --config electron-builder.admin.json && electron-builder --win nsis --x64 --config electron-builder.student.json"
   },
   "dependencies": {
     "react": "^19.2.8",
@@ -31,31 +36,5 @@
   },
   "description": "Virtual Optics Laboratory for engineering students",
   "author": "Mustafa Mawla",
-  "main": "electron/main.cjs",
-  "build": {
-    "appId": "com.mus092tafa.virtualopticslab",
-    "productName": "Virtual Optics Laboratory",
-    "files": [
-      "dist/**",
-      "electron/**",
-      "package.json"
-    ],
-    "directories": {
-      "output": "release"
-    },
-    "win": {
-      "target": [
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "signAndEditExecutable": false
-    },
-    "portable": {
-      "artifactName": "VirtualOpticsLab-${version}-portable.exe"
-    }
-  }
+  "main": "electron/main.cjs"
 }

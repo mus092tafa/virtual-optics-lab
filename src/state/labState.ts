@@ -103,6 +103,16 @@ export interface LabState {
   exposure: number
   showProfile: boolean
   notebook: Partial<Record<ExperimentId, NotebookRow[]>>
+  /**
+   * Set while the bench belongs to an exam question: calculated values stay
+   * withheld and cannot be revealed. Never saved.
+   */
+  examLock: ExamLock | null
+}
+
+export interface ExamLock {
+  /** Whether the lab notebook, which evaluates the experiment's formula, may be used. */
+  notebook: boolean
 }
 
 const SECTION_OF: Record<ExperimentId, LabSection> = {
@@ -161,6 +171,7 @@ function initialState(): LabState {
     exposure: 1,
     showProfile: true,
     notebook: {},
+    examLock: null,
   }
 }
 
@@ -194,6 +205,7 @@ export function mergeConfiguration(base: LabState, data: unknown): LabState {
     interferometer: { ...base.interferometer, ...(saved.interferometer ?? {}) },
     view: saved.view && saved.view.x1 > saved.view.x0 ? saved.view : base.view,
     notebook: normalizeNotebook(saved.notebook),
+    examLock: null,
   }
 }
 
@@ -217,6 +229,8 @@ let persistTimer: ReturnType<typeof setTimeout> | undefined
 labStore.subscribe(() => {
   clearTimeout(persistTimer)
   persistTimer = setTimeout(() => {
+    // An exam bench is not the student's own laboratory and is not remembered.
+    if (labStore.get().examLock) return
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(labStore.get()))
     } catch {
@@ -326,9 +340,11 @@ export const actions = {
     update({ section, experiment, revealed: false, ...(section === 'interferometer' ? { screenFov: mm(40), exposure: 1 } : {}) })
   },
   setMode(mode: LabMode) {
+    if (labStore.get().examLock) return
     update({ mode, revealed: false })
   },
   setRevealed(revealed: boolean) {
+    if (labStore.get().examLock) return
     update({ revealed })
   },
   select(id: string | null) {
@@ -374,6 +390,7 @@ export const actions = {
   },
   /** Swaps a lens for one of the same type but unknown focal length (experiment mode). */
   useUnknownLens(id: string) {
+    if (labStore.get().examLock) return
     const current = labStore.get().components.find((c) => c.id === id)
     const sign = current?.kind === 'lens' && current.focalLength < 0 ? -1 : 1
     const focalLength = sign * LENS_FOCAL_LENGTHS[Math.floor(Math.random() * LENS_FOCAL_LENGTHS.length)]
@@ -417,6 +434,7 @@ export const actions = {
   },
   /** Swaps the laser for one of the He-Ne lines without telling the student which. */
   useUnknownLaser() {
+    if (labStore.get().examLock) return
     const line = HENE_LINES[Math.floor(Math.random() * HENE_LINES.length)]
     actions.updateInterferometer({ lineId: line.id, concealed: true, counterReference: null })
     update({ revealed: false })
@@ -437,10 +455,37 @@ export const actions = {
   clearNotebook() {
     update((state) => ({ notebook: { ...state.notebook, [state.experiment]: [] } }))
   },
+  /** The physical configuration as plain data, for a file or an exam question. */
+  exportSnapshot(): Record<string, unknown> {
+    const { selectedId: _selected, examLock: _lock, ...rest } = labStore.get()
+    return { format: 'virtual-optics-lab', version: 1, ...rest }
+  },
   /** Serialises the physical configuration for saving to a file. */
   exportConfiguration(): string {
-    const { selectedId: _selected, ...rest } = labStore.get()
-    return JSON.stringify({ format: 'virtual-optics-lab', version: 1, ...rest }, null, 2)
+    return JSON.stringify(actions.exportSnapshot(), null, 2)
+  },
+  /**
+   * Replaces the laboratory with a saved configuration. With `lock` it becomes
+   * the bench of an exam question: experiment mode, theory withheld for good.
+   */
+  loadSnapshot(snapshot: unknown, options: { lock?: ExamLock | null; concealUnknowns?: boolean; mode?: LabMode } = {}) {
+    const loaded = mergeConfiguration(initialState(), snapshot)
+    const conceal = options.concealUnknowns === true
+    labStore.set({
+      ...loaded,
+      components: conceal ? loaded.components.map((c) => (c.kind === 'lens' ? { ...c, concealed: true } : c)) : loaded.components,
+      interferometer: conceal ? { ...loaded.interferometer, concealed: true } : loaded.interferometer,
+      mode: options.lock ? 'experiment' : (options.mode ?? loaded.mode),
+      revealed: false,
+      // Aids that draw the calculated result are off on an exam bench.
+      showRays: options.lock ? false : loaded.showRays,
+      beamZoom: options.lock ? false : loaded.beamZoom,
+      examLock: options.lock ?? null,
+    })
+  },
+  /** Puts back a laboratory state taken earlier with `labStore.get()`. */
+  restore(state: LabState) {
+    labStore.set({ ...state, selectedId: null, examLock: null })
   },
   importConfiguration(text: string): boolean {
     try {

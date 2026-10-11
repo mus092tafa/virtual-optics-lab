@@ -30,6 +30,7 @@ export function PrismWorkspace() {
   const prism = useLab((s) => s.prism)
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
+  const examLock = useLab((s) => s.examLock)
   const showTheory = theoryVisible({ mode, revealed })
   const glass = opticalGlass(prism.glassId)
   const white = prism.light === 'white'
@@ -149,7 +150,7 @@ export function PrismWorkspace() {
         <section className="panel physics" aria-label="Measurements">
           <header className="panel-header">
             <h2>Physics</h2>
-            {mode === 'experiment' && (
+            {mode === 'experiment' && !examLock && (
               <button className="chip" onClick={() => actions.setRevealed(!revealed)}>
                 {revealed ? 'Hide theory' : 'Reveal theory'}
               </button>
@@ -176,9 +177,11 @@ export function PrismWorkspace() {
         </section>
       </div>
 
-      <div className="bottom-row single">
-        <ExperimentPanel context={context} setup={setup} />
-      </div>
+      {(!examLock || examLock.notebook) && (
+        <div className="bottom-row single">
+          <ExperimentPanel context={context} setup={setup} />
+        </div>
+      )}
     </main>
   )
 }

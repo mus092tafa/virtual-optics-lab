@@ -20,6 +20,7 @@ export function BenchWorkspace() {
   const view = useLab((s) => s.view)
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
+  const examLock = useLab((s) => s.examLock)
   const showTheory = theoryVisible({ mode, revealed })
 
   // The single place where the physical system is solved. Everything displayed
@@ -82,10 +83,10 @@ export function BenchWorkspace() {
 
       <ScreenOutput light={solution.screenLight} focus={solution.imaging?.screen} />
 
-      <div className="bottom-row">
+      <div className={`bottom-row${examLock && !examLock.notebook ? ' pair' : ''}`}>
         <ControlPanel />
         <PhysicsPanel sections={report} notices={solution.notices} />
-        <ExperimentPanel context={context} setup={report} />
+        {(!examLock || examLock.notebook) && <ExperimentPanel context={context} setup={report} />}
       </div>
     </main>
   )

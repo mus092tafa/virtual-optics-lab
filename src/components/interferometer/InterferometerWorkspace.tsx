@@ -25,6 +25,7 @@ export function InterferometerWorkspace() {
   const setup = useLab((s) => s.interferometer)
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
+  const examLock = useLab((s) => s.examLock)
   const showTheory = theoryVisible({ mode, revealed })
   const [scanning, setScanning] = useState(false)
   const line = laserLine(setup.lineId)
@@ -125,7 +126,7 @@ export function InterferometerWorkspace() {
 
       <ScreenOutput light={light} />
 
-      <div className="bottom-row">
+      <div className={`bottom-row${examLock && !examLock.notebook ? ' pair' : ''}`}>
         <section className="panel controls" aria-label="Controls">
           <header className="panel-header">
             <h2>Controls</h2>
@@ -272,9 +273,11 @@ export function InterferometerWorkspace() {
               ) : (
                 <span className="concealed">unknown — measure it</span>
               )}
-              <button className="chip" onClick={() => actions.useUnknownLaser()}>
-                Use unknown laser
-              </button>
+              {!examLock && (
+                <button className="chip" onClick={() => actions.useUnknownLaser()}>
+                  Use unknown laser
+                </button>
+              )}
             </div>
           </div>
         </section>
@@ -282,7 +285,7 @@ export function InterferometerWorkspace() {
         <section className="panel physics" aria-label="Physics">
           <header className="panel-header">
             <h2>Physics</h2>
-            {mode === 'experiment' && (
+            {mode === 'experiment' && !examLock && (
               <button className="chip" onClick={() => actions.setRevealed(!revealed)}>
                 {revealed ? 'Hide theory' : 'Reveal theory'}
               </button>
@@ -308,7 +311,7 @@ export function InterferometerWorkspace() {
           </div>
         </section>
 
-        <ExperimentPanel context={context} />
+        {(!examLock || examLock.notebook) && <ExperimentPanel context={context} />}
       </div>
     </main>
   )

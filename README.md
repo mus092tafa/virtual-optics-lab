@@ -8,7 +8,7 @@ blurs; narrow a slit and the diffraction pattern widens.
 ```bash
 npm install
 npm run dev      # start the lab at http://localhost:5173
-npm test         # 185 unit tests: physics, notebook analysis, every experiment
+npm test         # unit tests: physics, notebook analysis, every experiment, exam mode
 npm run build    # type-check and build for production
 npm run lint
 ```
@@ -16,13 +16,30 @@ npm run lint
 ## Windows desktop app
 
 ```bash
-npm run desktop    # build and open the lab in a desktop window
-npm run dist:win   # build release/VirtualOpticsLab-<version>-portable.exe
+npm run desktop          # build and open the teacher edition in a desktop window
+npm run desktop:student  # the same for the student edition
+npm run dist:win         # build both editions into release/teacher and release/student
 ```
 
-The portable exe is a single file that runs on 64-bit Windows 10/11 without installation. It is
-not code-signed, so Windows SmartScreen asks for confirmation on first launch (*More info → Run
-anyway*). The desktop shell in `electron/main.cjs` only opens the built web app in a window.
+There are two editions. The **teacher** edition contains everything; the **student** edition has
+no exam-writing or marking code. Each is built as a portable exe: a single file that runs on
+64-bit Windows 10/11 without installation. They are not code-signed, so Windows SmartScreen asks
+for confirmation on first launch (*More info → Run anyway*).
+
+`npm run dist:win:setup` builds installers instead (`…-setup.exe`: per-user, no administrator
+rights, registers the exam file types). Building those on Linux needs `wine`; on Windows it works
+as is.
+
+## Exam mode
+
+The application opens on a start screen: the free laboratory, joining an exam, sitting an exam
+file and, in the teacher edition, the exams area. Exams are given over a local Wi-Fi network with
+no internet access: the teacher's laptop opens a classroom, the students' laptops find it, the
+clock runs from the teacher's laptop, and the answers come back for marking. Questions can be
+written, multiple choice, or solved on the virtual bench with the theory withheld. Results export
+as PDF and CSV, and every sitting is kept in the records on the teacher's laptop.
+
+See [docs/EXAMS.md](docs/EXAMS.md) for the room set-up, the procedure and the file formats.
 
 ## The laboratory
 

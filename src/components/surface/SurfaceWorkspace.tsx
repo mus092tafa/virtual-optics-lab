@@ -17,6 +17,7 @@ export function SurfaceWorkspace() {
   const surface = useLab((s) => s.surface)
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
+  const examLock = useLab((s) => s.examLock)
   const showTheory = theoryVisible({ mode, revealed })
   const solution = useMemo(() => solveSurface(surface), [surface])
   const polarization = surface.polarization ?? 'unpolarized'
@@ -204,7 +205,7 @@ export function SurfaceWorkspace() {
         <section className="panel physics" aria-label="Measurements">
           <header className="panel-header">
             <h2>Physics</h2>
-            {mode === 'experiment' && (
+            {mode === 'experiment' && !examLock && (
               <button className="chip" onClick={() => actions.setRevealed(!revealed)}>
                 {revealed ? 'Hide theory' : 'Reveal theory'}
               </button>
@@ -227,9 +228,11 @@ export function SurfaceWorkspace() {
         </section>
       </div>
 
-      <div className="bottom-row single">
-        <ExperimentPanel context={context} />
-      </div>
+      {(!examLock || examLock.notebook) && (
+        <div className="bottom-row single">
+          <ExperimentPanel context={context} />
+        </div>
+      )}
     </main>
   )
 }

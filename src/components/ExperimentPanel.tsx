@@ -53,7 +53,10 @@ export function ExperimentPanel({ context, setup = [] }: Props) {
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
   const notebook = useLab((s) => s.notebook)
-  const [tab, setTab] = useState<'guide' | 'notebook'>('guide')
+  const examLock = useLab((s) => s.examLock)
+  const [chosenTab, setTab] = useState<'guide' | 'notebook'>('guide')
+  // On an exam bench the guide, which describes the procedure, is not offered.
+  const tab = examLock ? 'notebook' : chosenTab
   const [inputs, setInputs] = useState<Record<string, string>>({})
   const [student, setStudent] = useState('')
   const definition = experiment(experimentId)
@@ -124,9 +127,11 @@ export function ExperimentPanel({ context, setup = [] }: Props) {
           Experiment {definition.number} — {definition.title}
         </h2>
         <div className="tabs" role="tablist">
-          <button role="tab" aria-selected={tab === 'guide'} className={tab === 'guide' ? 'active' : ''} onClick={() => setTab('guide')}>
-            Guide
-          </button>
+          {!examLock && (
+            <button role="tab" aria-selected={tab === 'guide'} className={tab === 'guide' ? 'active' : ''} onClick={() => setTab('guide')}>
+              Guide
+            </button>
+          )}
           <button role="tab" aria-selected={tab === 'notebook'} className={tab === 'notebook' ? 'active' : ''} onClick={() => setTab('notebook')}>
             Notebook{rows.length ? ` (${rows.length})` : ''}
           </button>
@@ -307,12 +312,12 @@ export function ExperimentPanel({ context, setup = [] }: Props) {
           )}
 
           <div className="control-row end">
-            {mode === 'experiment' && rows.length > 0 && (
+            {mode === 'experiment' && !examLock && rows.length > 0 && (
               <button className="chip" onClick={() => actions.setRevealed(!revealed)}>
                 {revealed ? 'Hide accepted values' : 'Check against theory'}
               </button>
             )}
-            {rows.length > 0 && (
+            {rows.length > 0 && !examLock && (
               <>
                 <input className="text-input student-name" placeholder="Your name (for the report)" value={student} onChange={(event) => setStudent(event.target.value)} aria-label="Name for the report" />
                 <button className="chip" onClick={exportReport} title="Download a printable lab report (HTML)">
@@ -321,10 +326,12 @@ export function ExperimentPanel({ context, setup = [] }: Props) {
                 <button className="chip" onClick={exportCsv}>
                   Export CSV
                 </button>
-                <button className="chip" onClick={() => actions.clearNotebook()}>
-                  Clear
-                </button>
               </>
+            )}
+            {rows.length > 0 && (
+              <button className="chip" onClick={() => actions.clearNotebook()}>
+                Clear
+              </button>
             )}
           </div>
         </div>

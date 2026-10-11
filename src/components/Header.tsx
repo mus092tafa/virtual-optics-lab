@@ -11,7 +11,12 @@ const MODES: { id: LabMode; label: string; title: string }[] = [
 ]
 const SWEEP_PERIOD_MS = 9000
 
-export function Header() {
+interface Props {
+  /** Shown as a button that leaves the laboratory, when given. */
+  onHome?: () => void
+}
+
+export function Header({ onHome }: Props) {
   const section = useLab((s) => s.section)
   const experimentId = useLab((s) => s.experiment)
   const mode = useLab((s) => s.mode)
@@ -58,6 +63,11 @@ export function Header() {
     <header className="app-header">
       <div className="header-top">
         <div className="brand">
+          {onHome && (
+            <button className="chip" onClick={onHome} title="Back to the start screen">
+              ← Start
+            </button>
+          )}
           <svg viewBox="0 0 32 32" aria-hidden="true">
             <path d="M16 3 Q25 16 16 29 Q7 16 16 3Z" fill="none" stroke="#7cc4ff" strokeWidth="1.8" />
             <path d="M1 11 L16 11 L31 19 M1 21 L16 21 L31 13" stroke="#ff5a4f" strokeWidth="1.4" fill="none" />

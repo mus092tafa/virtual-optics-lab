@@ -48,6 +48,7 @@ export function ControlPanel() {
   const selectedId = useLab((s) => s.selectedId)
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
+  const examLock = useLab((s) => s.examLock)
   const showTheory = theoryVisible({ mode, revealed })
   const component = components.find((c) => c.id === selectedId) ?? null
 
@@ -166,17 +167,19 @@ export function ControlPanel() {
                 display={formatLength(component.aperture, 'mm', 0)}
                 onChange={(value) => patch({ aperture: mm(value) })}
               />
-              <div className="control-row">
-                <span />
-                <button className="chip" onClick={() => actions.useUnknownLens(component.id)}>
-                  Use unknown lens
-                </button>
-                {component.concealed && (
-                  <button className="chip" onClick={() => patch({ concealed: false })}>
-                    Show focal length
+              {!examLock && (
+                <div className="control-row">
+                  <span />
+                  <button className="chip" onClick={() => actions.useUnknownLens(component.id)}>
+                    Use unknown lens
                   </button>
-                )}
-              </div>
+                  {component.concealed && (
+                    <button className="chip" onClick={() => patch({ concealed: false })}>
+                      Show focal length
+                    </button>
+                  )}
+                </div>
+              )}
             </>
           )}
 

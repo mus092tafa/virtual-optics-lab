@@ -56,8 +56,9 @@ npm run dev        # start the lab at http://localhost:5173
 npm test           # unit tests of the physics layer (vitest)
 npm run build      # type-check and build
 npm run lint       # oxlint
-npm run desktop    # build and open in an Electron window
-npm run dist:win   # build the portable Windows exe into release/
+npm run desktop          # build and open the teacher edition in an Electron window
+npm run desktop:student  # build and open the student edition
+npm run dist:win         # build both Windows editions into release/teacher and release/student
 ```
 
 ## Architecture
@@ -73,7 +74,24 @@ bench layout (state) -> solveBench() -> { light at screen, numbers, overlay } ->
 - `src/education/` — experiment definitions and lab-notebook analysis.
 - `src/render/` — rasterises the solver's result onto the screen canvas.
 - `src/components/` — React UI. Contains no optical formulas.
-- `electron/main.cjs` — desktop shell; only opens the built web app.
+- `src/exam/` — exam mode, pure TypeScript: exam documents, marking, CSV, printable documents.
+  See `docs/EXAMS.md`.
+- `src/platform/desktop.ts` — the desktop shell as the page sees it. The exam mode needs it; the
+  laboratory does not.
+- `electron/` — desktop shell: files, PDF output, the teacher's records and the classroom network
+  (`classroom.cjs`). Contains nothing optical. Run it from a shell with `ELECTRON_RUN_AS_NODE`
+  unset (VS Code terminals set it, and Electron then starts as plain Node).
+
+## Editions
+
+The app is built twice. `VITE_EDITION=student` (vite mode `student`, output `dist-student/`) leaves
+out `src/components/exam/admin/`; the default build is the teacher edition. The answer key of an
+exam must never reach the student build or travel to a student laptop: `toPaper()` in
+`src/exam/format.ts` is the only way an exam becomes a student paper.
+
+On the bench of an exam question (`examLock` in the lab state) calculated values stay withheld and
+cannot be revealed. A new control that shows a calculated value must respect `theoryVisible()`,
+and one that reveals or randomises an unknown must be hidden while `examLock` is set.
 
 ## Conventions
 
