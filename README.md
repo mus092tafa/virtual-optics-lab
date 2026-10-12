@@ -58,6 +58,11 @@ See [docs/EXAMS.md](docs/EXAMS.md) for the room set-up, the procedure and the fi
 
 ## The laboratory
 
+The experiments are grouped by topic (Rays & Surfaces, Lenses & Mirrors, Laser Beams, Diffraction &
+Interference, Polarisation; see `src/education/topics.ts`). The start screen lists them all, and the
+laboratory shows the experiments of one topic at a time. Each experiment runs on one of three kinds
+of apparatus, called sections A, B and C below.
+
 **Section A — Reflection and refraction.** A laser ray meets a plane mirror or an interface between
 two media. Drag the laser around the point of incidence, tilt the surface, choose the materials, and
 read angles from a rotatable protractor. Partial reflection follows the Fresnel equations for

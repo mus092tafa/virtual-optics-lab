@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react'
-import { EXPERIMENTS } from '../../education/experiments'
+import { EXPERIMENTS, experiment } from '../../education/experiments'
+import { TOPICS } from '../../education/topics'
 import { FILE_EXTENSIONS } from '../../exam/format'
 import { EDITION, desktop, hasDesktop } from '../../platform/desktop'
+import { actions, useLab } from '../../state/labState'
 import type { OpenedFile } from '../../platform/desktop'
 import { BrandMark } from './BrandMark'
 
@@ -14,12 +16,6 @@ interface Props {
   /** Absent in the student edition. */
   onAdmin?: () => void
 }
-
-const LAB_SECTIONS = [
-  { letter: 'A', name: 'Reflection & Refraction' },
-  { letter: 'B', name: 'Optical Bench' },
-  { letter: 'C', name: 'Interferometer' },
-]
 
 const ICONS = {
   join: <path d="M4 6h16v10H4zM9 20h6M12 16v4M8.5 11l2.5 2.5 4.5-5" />,
@@ -58,6 +54,7 @@ function Tile({ tone, icon, title, text, disabled, onClick }: TileProps) {
 /** First screen of the application: the free laboratory or one of the exam modes. */
 export function StartScreen({ notice, onLab, onJoin, onOpenFile, onSettings, onAdmin }: Props) {
   const exams = hasDesktop()
+  const current = experiment(useLab((state) => state.experiment))
 
   const openExamFile = async () => {
     const file = await desktop().openFile({ title: 'Open an exam file', extensions: [FILE_EXTENSIONS.paper], label: 'Exam file' })
@@ -92,28 +89,45 @@ export function StartScreen({ notice, onLab, onJoin, onOpenFile, onSettings, onA
 
           <div className="start-columns">
             <section className="start-group">
-              <h2 className="presets-label">Laboratory</h2>
+              <h2 className="presets-label">Laboratory · {EXPERIMENTS.length} experiments</h2>
               <button className="start-tile lab" onClick={onLab}>
                 <span className="start-icon">
                   <BrandMark />
                 </span>
                 <span className="start-tile-text">
-                  <strong>Free laboratory</strong>
-                  <span>Work on the optical bench at your own pace: all experiments, the guide and the lab notebook.</span>
+                  <strong>Continue in the laboratory</strong>
+                  <span>
+                    Where you left off: {current.number} · {current.title}
+                  </span>
                 </span>
-                <span className="start-sections">
-                  {LAB_SECTIONS.map((section) => (
-                    <span key={section.letter} className="start-section">
-                      <span className="preset-number">{section.letter}</span>
-                      {section.name}
-                    </span>
-                  ))}
-                </span>
-                <span className="start-open">
-                  <span className="mono">{EXPERIMENTS.length} experiments</span>
-                  <span>Open the laboratory →</span>
+                <span className="start-arrow" aria-hidden="true">
+                  →
                 </span>
               </button>
+
+              {TOPICS.map((topic) => (
+                <div key={topic.id} className="catalogue-topic">
+                  <h3>{topic.name}</h3>
+                  <div className="catalogue-grid">
+                    {topic.experiments.map(experiment).map((entry) => (
+                      <button
+                        key={entry.id}
+                        className="catalogue-card"
+                        onClick={() => {
+                          actions.loadExperiment(entry.id)
+                          onLab()
+                        }}
+                      >
+                        <span className="preset-number">{entry.number}</span>
+                        <span className="catalogue-text">
+                          <strong>{entry.title}</strong>
+                          <span>{entry.goal}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </section>
 
             <div className="start-side">

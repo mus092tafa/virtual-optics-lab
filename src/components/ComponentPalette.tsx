@@ -1,3 +1,6 @@
+import { useState } from 'react'
+import { topicOf } from '../education/topics'
+import type { TopicId } from '../education/topics'
 import type { BenchComponent, ComponentKind } from '../physics/types'
 import { cm } from '../physics/units'
 import { MAX_LENSES, MAX_POLARIZERS, actions, useLab } from '../state/labState'
@@ -32,6 +35,14 @@ const ENTRIES: PaletteEntry[] = [
   { id: 'polarizer', kind: 'polarizer', label: KIND_NAMES.polarizer, matches: (c) => c.kind === 'polarizer' },
   { id: 'screen', kind: 'screen', label: KIND_NAMES.screen, matches: (c) => c.kind === 'screen' },
 ]
+
+/** The entries a topic's experiments are built from; a topic that is not listed offers everything. */
+const TOPIC_PARTS: Partial<Record<TopicId, string[]>> = {
+  imaging: ['tungsten', 'object', 'convex', 'concave', 'mirror', 'screen'],
+  beams: ['laser', 'convex', 'concave', 'screen'],
+  waves: ['laser', 'tungsten', 'singleSlit', 'doubleSlit', 'grating', 'pinhole', 'convex', 'screen'],
+  polarisation: ['laser', 'polarizer', 'screen'],
+}
 
 /** Kinds of which several can be mounted, with their limit. */
 const LIMITS: Partial<Record<ComponentKind, number>> = { lens: MAX_LENSES, polarizer: MAX_POLARIZERS }
@@ -120,13 +131,20 @@ function Icon({ id }: { id: string }) {
 
 export function ComponentPalette() {
   const components = useLab((s) => s.components)
+  const topic = useLab((s) => topicOf(s.experiment))
+  // On an exam bench the choice of parts is the student's own: nothing is narrowed down.
+  const exam = useLab((s) => s.examLock !== null)
+  const [all, setAll] = useState(false)
+  const parts = exam || all ? undefined : TOPIC_PARTS[topic.id]
+  // A part that is mounted stays in the list whatever the topic.
+  const entries = parts ? ENTRIES.filter((entry) => parts.includes(entry.id) || components.some(entry.matches)) : ENTRIES
   return (
     <aside className="panel palette" aria-label="Components">
       <header className="panel-header">
         <h2>Components</h2>
       </header>
       <ul>
-        {ENTRIES.map((entry) => {
+        {entries.map((entry) => {
           const present = components.filter(entry.matches).length
           const limit = LIMITS[entry.kind]
           const full = limit !== undefined && components.filter((c) => c.kind === entry.kind).length >= limit
@@ -148,6 +166,11 @@ export function ComponentPalette() {
           )
         })}
       </ul>
+      {!exam && TOPIC_PARTS[topic.id] && (
+        <button className="palette-more" onClick={() => setAll((value) => !value)} title={all ? `Show only the parts used in ${topic.name}` : 'Show every component of the laboratory'}>
+          {all ? `Only ${topic.name}` : `All components (${ENTRIES.length})`}
+        </button>
+      )}
       <p className="palette-help">Click to mount on the rail, then drag. Arrow keys nudge by 1 mm (Shift: 1 cm); Delete removes.</p>
     </aside>
   )

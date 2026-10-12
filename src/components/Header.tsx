@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { EXPERIMENTS } from '../education/experiments'
+import { experiment } from '../education/experiments'
+import { TOPICS, topicOf } from '../education/topics'
 import { actions, useLab } from '../state/labState'
 import type { LabMode } from '../state/labState'
 import { SWEEP_LABELS, applySweep } from '../state/sweeps'
@@ -23,6 +24,31 @@ export function Header({ onHome }: Props) {
   const fileInput = useRef<HTMLInputElement>(null)
   const [status, setStatus] = useState('')
   const [sweeping, setSweeping] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menu = useRef<HTMLDivElement>(null)
+  const topic = topicOf(experimentId)
+
+  // The menu closes when the student clicks elsewhere or presses Escape.
+  useEffect(() => {
+    if (!menuOpen) return
+    const outside = (event: PointerEvent) => {
+      if (!menu.current?.contains(event.target as Node)) setMenuOpen(false)
+    }
+    const escape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false)
+    }
+    document.addEventListener('pointerdown', outside)
+    document.addEventListener('keydown', escape)
+    return () => {
+      document.removeEventListener('pointerdown', outside)
+      document.removeEventListener('keydown', escape)
+    }
+  }, [menuOpen])
+
+  const open = (id: typeof experimentId) => {
+    setSweeping(false)
+    actions.loadExperiment(id)
+  }
 
   // Demonstration sweep: a triangle wave on the experiment's key parameter.
   useEffect(() => {
@@ -78,18 +104,6 @@ export function Header({ onHome }: Props) {
           </div>
         </div>
 
-        <nav className="segmented" aria-label="Laboratory section">
-          <button className={section === 'surface' ? 'active' : ''} onClick={() => actions.setSection('surface')}>
-            A · Reflection &amp; Refraction
-          </button>
-          <button className={section === 'bench' ? 'active' : ''} onClick={() => actions.setSection('bench')}>
-            B · Optical Bench
-          </button>
-          <button className={section === 'interferometer' ? 'active' : ''} onClick={() => actions.setSection('interferometer')}>
-            C · Interferometer
-          </button>
-        </nav>
-
         <div className="segmented" role="radiogroup" aria-label="Mode">
           {MODES.map((entry) => (
             <button
@@ -117,33 +131,50 @@ export function Header({ onHome }: Props) {
           <button className="chip" onClick={() => actions.resetLaboratory()} title="Restore the current experiment's initial layout">
             Reset
           </button>
-          {section === 'bench' && (
-            <button className="chip" onClick={() => actions.clearBench()} title="Remove every component from the bench">
-              Clear all
+          <div className="menu" ref={menu}>
+            <button className={`chip${menuOpen ? ' active' : ''}`} aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen((value) => !value)}>
+              More ▾
             </button>
-          )}
-          <button className="chip" onClick={save} title="Download the configuration as a file">
-            Save
-          </button>
-          <button className="chip" onClick={() => fileInput.current?.click()} title="Load a saved configuration file">
-            Load
-          </button>
+            {menuOpen && (
+              <div className="menu-list" role="menu" onClick={() => setMenuOpen(false)}>
+                {section === 'bench' && (
+                  <button role="menuitem" onClick={() => actions.clearBench()}>
+                    <strong>Clear the bench</strong>
+                    <span>Remove every component from the rail</span>
+                  </button>
+                )}
+                <button role="menuitem" onClick={save}>
+                  <strong>Save to a file…</strong>
+                  <span>Download this set-up</span>
+                </button>
+                <button role="menuitem" onClick={() => fileInput.current?.click()}>
+                  <strong>Load from a file…</strong>
+                  <span>Open a set-up saved earlier</span>
+                </button>
+              </div>
+            )}
+          </div>
           <input ref={fileInput} type="file" accept="application/json,.json" hidden onChange={(event) => load(event.target.files?.[0])} />
         </div>
       </div>
 
       <div className="header-presets">
-        <span className="presets-label">Experiments</span>
-        {EXPERIMENTS.map((entry) => (
-          <button
-            key={entry.id}
-            className={`preset${entry.id === experimentId ? ' active' : ''}`}
-            onClick={() => {
-              setSweeping(false)
-              actions.loadExperiment(entry.id)
-            }}
-            title={entry.goal}
-          >
+        <nav className="segmented" aria-label="Topic">
+          {TOPICS.map((entry) => (
+            <button
+              key={entry.id}
+              className={entry.id === topic.id ? 'active' : ''}
+              title={entry.experiments.map((id) => experiment(id).short).join(' · ')}
+              // Choosing a topic opens its first experiment; the one in progress is left alone.
+              onClick={() => entry.id !== topic.id && open(entry.experiments[0])}
+            >
+              {entry.name}
+            </button>
+          ))}
+        </nav>
+        <span className="presets-divider" aria-hidden="true" />
+        {topic.experiments.map(experiment).map((entry) => (
+          <button key={entry.id} className={`preset${entry.id === experimentId ? ' active' : ''}`} onClick={() => open(entry.id)} title={entry.goal}>
             <span className="preset-number">{entry.number}</span>
             {entry.short}
           </button>
