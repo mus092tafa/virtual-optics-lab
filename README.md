@@ -28,7 +28,9 @@ for confirmation on first launch (*More info → Run anyway*).
 
 `npm run dist:win:setup` builds installers instead (`…-setup.exe`: per-user, no administrator
 rights, registers the exam file types). Building those on Linux needs `wine`; on Windows it works
-as is.
+as is. The *Windows builds* workflow on GitHub builds all four files (portable and installer, both
+editions) on a Windows machine: run it from the Actions tab, or push a `v*` tag, and download them
+from the run's artifacts.
 
 ## Exam mode
 
