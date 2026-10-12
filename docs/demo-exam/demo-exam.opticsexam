@@ -1,0 +1,459 @@
+{
+  "format": "optics-exam",
+  "version": 1,
+  "id": "exam-demo-optics-01",
+  "title": "Demo exam — Engineering Optics",
+  "course": "Engineering Optics Laboratory",
+  "instructions": "Answer all questions. In the laboratory questions, read your values from the bench as you would in the real laboratory: rail positions, the screen graticule, the ruler and the protractor. Give each value in the unit printed beside its box.",
+  "durationMinutes": 30,
+  "questions": [
+    {
+      "id": "q-demo-mcq-snell",
+      "prompt": "A ray of light passes from air into glass at an angle of incidence of 40°. Compared with the angle of incidence, the angle of refraction is",
+      "points": 2,
+      "type": "mcq",
+      "options": [
+        {
+          "id": "o-snell-a",
+          "text": "smaller, because the ray bends towards the normal"
+        },
+        {
+          "id": "o-snell-b",
+          "text": "larger, because the ray bends away from the normal"
+        },
+        {
+          "id": "o-snell-c",
+          "text": "the same, because the frequency of the light does not change"
+        },
+        {
+          "id": "o-snell-d",
+          "text": "zero, because the ray is totally reflected"
+        }
+      ]
+    },
+    {
+      "id": "q-demo-mcq-young",
+      "prompt": "In Young’s double-slit experiment the slit separation d is doubled while the wavelength and the distance to the screen stay the same. The fringe spacing Δy on the screen",
+      "points": 2,
+      "type": "mcq",
+      "options": [
+        {
+          "id": "o-young-a",
+          "text": "doubles"
+        },
+        {
+          "id": "o-young-b",
+          "text": "is halved"
+        },
+        {
+          "id": "o-young-c",
+          "text": "does not change"
+        },
+        {
+          "id": "o-young-d",
+          "text": "becomes four times larger"
+        }
+      ]
+    },
+    {
+      "id": "q-demo-written",
+      "prompt": "A converging lens forms a sharp image of an object on a screen. Explain what happens to the position and to the size of the image when the object is moved closer to the lens, but stays farther from it than the focal length. What happens when the object reaches the focal point?",
+      "points": 4,
+      "type": "written"
+    },
+    {
+      "id": "q-demo-bench-lens",
+      "prompt": "The lens on the rail has an unknown focal length. Without moving the object or the lens, move the screen until the image of the arrow is sharp. Read the object distance and the image distance from the rail, measure the height of the image on the screen, and determine the focal length of the lens and the magnification (with its sign).",
+      "points": 6,
+      "type": "bench",
+      "setup": {
+        "format": "virtual-optics-lab",
+        "version": 1,
+        "section": "bench",
+        "experiment": "convex-lens",
+        "mode": "experiment",
+        "revealed": false,
+        "components": [
+          {
+            "id": "tungsten-mv4tsuc0-5",
+            "kind": "tungsten",
+            "x": 0.05,
+            "intensity": 0.7,
+            "sourceSize": 0.004
+          },
+          {
+            "id": "object-mv4tsuc0-6",
+            "kind": "object",
+            "x": 0.15,
+            "shape": "arrow",
+            "height": 0.02,
+            "letter": "F"
+          },
+          {
+            "id": "lens-mv4tsuc0-7",
+            "kind": "lens",
+            "x": 0.4,
+            "focalLength": 0.15,
+            "aperture": 0.04,
+            "concealed": false
+          },
+          {
+            "id": "screen-mv4tsuc0-8",
+            "kind": "screen",
+            "x": 0.6
+          }
+        ],
+        "view": {
+          "x0": -0.07,
+          "x1": 0.9
+        },
+        "showRays": false,
+        "rulerTool": false,
+        "beamZoom": false,
+        "diffractionModel": "fraunhofer",
+        "surface": {
+          "kind": "mirror",
+          "surfaceTilt": 0,
+          "sourceAngle": 2.1816615649929116,
+          "medium1": "air",
+          "medium2": "air",
+          "polarization": "unpolarized",
+          "showNormal": true,
+          "showProtractor": true,
+          "protractorAngle": 1.5707963267948966
+        },
+        "prism": {
+          "apexAngle": 1.0471975511965976,
+          "incidenceAngle": 1.0471975511965976,
+          "glassId": "bk7",
+          "light": "red"
+        },
+        "interferometer": {
+          "lineId": "red",
+          "concealed": false,
+          "expanderFocalLength": 0.02,
+          "armLength": 0.15,
+          "splitterToScreen": 0.25,
+          "coarse": 0.004,
+          "fine": 0,
+          "tiltX": 0,
+          "tiltY": 0,
+          "counterReference": null
+        },
+        "screenFov": 0.08,
+        "exposure": 1,
+        "showProfile": true,
+        "notebook": {}
+      },
+      "fields": [
+        {
+          "id": "f-lens-do",
+          "label": "Object distance do",
+          "unit": "cm"
+        },
+        {
+          "id": "f-lens-di",
+          "label": "Image distance di",
+          "unit": "cm"
+        },
+        {
+          "id": "f-lens-f",
+          "label": "Focal length f",
+          "unit": "cm"
+        },
+        {
+          "id": "f-lens-m",
+          "label": "Magnification m",
+          "unit": ""
+        }
+      ],
+      "concealUnknowns": true,
+      "allowNotebook": false
+    },
+    {
+      "id": "q-demo-bench-young",
+      "prompt": "A He-Ne laser illuminates a double slit. Read the distance L from the slits to the screen on the rail. On the screen, measure the spacing Δy of the bright fringes (measure across several fringes and divide) and the full width W of the central diffraction maximum, between the first minima of the envelope on either side. In the notes, show that your Δy agrees with Δy = λL/d for this laser and these slits.",
+      "points": 5,
+      "type": "bench",
+      "setup": {
+        "format": "virtual-optics-lab",
+        "version": 1,
+        "section": "bench",
+        "experiment": "double-slit",
+        "mode": "experiment",
+        "revealed": false,
+        "components": [
+          {
+            "id": "laser-mv4tsuc2-9",
+            "kind": "laser",
+            "x": 0.08,
+            "lineId": "green"
+          },
+          {
+            "id": "doubleSlit-mv4tsuc2-10",
+            "kind": "doubleSlit",
+            "x": 0.4,
+            "width": 0.00004,
+            "separation": 0.0002,
+            "orientation": "vertical"
+          },
+          {
+            "id": "screen-mv4tsuc2-11",
+            "kind": "screen",
+            "x": 1.3
+          }
+        ],
+        "view": {
+          "x0": -0.07,
+          "x1": 1.5
+        },
+        "showRays": false,
+        "rulerTool": false,
+        "beamZoom": false,
+        "diffractionModel": "fraunhofer",
+        "surface": {
+          "kind": "mirror",
+          "surfaceTilt": 0,
+          "sourceAngle": 2.1816615649929116,
+          "medium1": "air",
+          "medium2": "air",
+          "polarization": "unpolarized",
+          "showNormal": true,
+          "showProtractor": true,
+          "protractorAngle": 1.5707963267948966
+        },
+        "prism": {
+          "apexAngle": 1.0471975511965976,
+          "incidenceAngle": 1.0471975511965976,
+          "glassId": "bk7",
+          "light": "red"
+        },
+        "interferometer": {
+          "lineId": "red",
+          "concealed": false,
+          "expanderFocalLength": 0.02,
+          "armLength": 0.15,
+          "splitterToScreen": 0.25,
+          "coarse": 0.004,
+          "fine": 0,
+          "tiltX": 0,
+          "tiltY": 0,
+          "counterReference": null
+        },
+        "screenFov": 0.03,
+        "exposure": 1,
+        "showProfile": true,
+        "notebook": {}
+      },
+      "fields": [
+        {
+          "id": "f-young-L",
+          "label": "Slit-to-screen distance L",
+          "unit": "cm"
+        },
+        {
+          "id": "f-young-dy",
+          "label": "Fringe spacing Δy",
+          "unit": "mm"
+        },
+        {
+          "id": "f-young-W",
+          "label": "Width of the central maximum W",
+          "unit": "mm"
+        }
+      ],
+      "concealUnknowns": false,
+      "allowNotebook": false
+    },
+    {
+      "id": "q-demo-bench-refraction",
+      "prompt": "A ray in air meets the flat surface of a transparent block. Without moving the light source, use the protractor to measure the angle of incidence and the angle of refraction, both from the normal, and calculate the refractive index of the block. Take n = 1.000 for air.",
+      "points": 5,
+      "type": "bench",
+      "setup": {
+        "format": "virtual-optics-lab",
+        "version": 1,
+        "section": "surface",
+        "experiment": "refraction",
+        "mode": "experiment",
+        "revealed": false,
+        "components": [
+          {
+            "id": "laser-mv4tsuc2-9",
+            "kind": "laser",
+            "x": 0.08,
+            "lineId": "green"
+          },
+          {
+            "id": "doubleSlit-mv4tsuc2-10",
+            "kind": "doubleSlit",
+            "x": 0.4,
+            "width": 0.00004,
+            "separation": 0.0002,
+            "orientation": "vertical"
+          },
+          {
+            "id": "screen-mv4tsuc2-11",
+            "kind": "screen",
+            "x": 1.3
+          }
+        ],
+        "view": {
+          "x0": -0.07,
+          "x1": 1.5
+        },
+        "showRays": false,
+        "rulerTool": false,
+        "beamZoom": false,
+        "diffractionModel": "fraunhofer",
+        "surface": {
+          "kind": "interface",
+          "surfaceTilt": 0,
+          "sourceAngle": 2.443460952792061,
+          "medium1": "air",
+          "medium2": "acrylic",
+          "polarization": "unpolarized",
+          "showNormal": true,
+          "showProtractor": true,
+          "protractorAngle": 1.5707963267948966
+        },
+        "prism": {
+          "apexAngle": 1.0471975511965976,
+          "incidenceAngle": 1.0471975511965976,
+          "glassId": "bk7",
+          "light": "red"
+        },
+        "interferometer": {
+          "lineId": "red",
+          "concealed": false,
+          "expanderFocalLength": 0.02,
+          "armLength": 0.15,
+          "splitterToScreen": 0.25,
+          "coarse": 0.004,
+          "fine": 0,
+          "tiltX": 0,
+          "tiltY": 0,
+          "counterReference": null
+        },
+        "screenFov": 0.03,
+        "exposure": 1,
+        "showProfile": true,
+        "notebook": {}
+      },
+      "fields": [
+        {
+          "id": "f-refr-t1",
+          "label": "Angle of incidence θ₁",
+          "unit": "°"
+        },
+        {
+          "id": "f-refr-t2",
+          "label": "Angle of refraction θ₂",
+          "unit": "°"
+        },
+        {
+          "id": "f-refr-n",
+          "label": "Refractive index n₂",
+          "unit": ""
+        }
+      ],
+      "concealUnknowns": false,
+      "allowNotebook": false
+    },
+    {
+      "id": "q-demo-bench-michelson",
+      "prompt": "The Michelson interferometer is lit by a laser of unknown wavelength. Reset the fringe counter, turn the fine micrometer of mirror M2 and count at least 20 fringes passing the centre of the screen. Record the number of fringes N and the mirror displacement Δd, and calculate the wavelength of the laser.",
+      "points": 6,
+      "type": "bench",
+      "setup": {
+        "format": "virtual-optics-lab",
+        "version": 1,
+        "section": "interferometer",
+        "experiment": "michelson",
+        "mode": "experiment",
+        "revealed": false,
+        "components": [
+          {
+            "id": "laser-mv4tsuc2-9",
+            "kind": "laser",
+            "x": 0.08,
+            "lineId": "green"
+          },
+          {
+            "id": "doubleSlit-mv4tsuc2-10",
+            "kind": "doubleSlit",
+            "x": 0.4,
+            "width": 0.00004,
+            "separation": 0.0002,
+            "orientation": "vertical"
+          },
+          {
+            "id": "screen-mv4tsuc2-11",
+            "kind": "screen",
+            "x": 1.3
+          }
+        ],
+        "view": {
+          "x0": -0.07,
+          "x1": 1.5
+        },
+        "showRays": false,
+        "rulerTool": false,
+        "beamZoom": false,
+        "diffractionModel": "fraunhofer",
+        "surface": {
+          "kind": "interface",
+          "surfaceTilt": 0,
+          "sourceAngle": 2.443460952792061,
+          "medium1": "air",
+          "medium2": "acrylic",
+          "polarization": "unpolarized",
+          "showNormal": true,
+          "showProtractor": true,
+          "protractorAngle": 1.5707963267948966
+        },
+        "prism": {
+          "apexAngle": 1.0471975511965976,
+          "incidenceAngle": 1.0471975511965976,
+          "glassId": "bk7",
+          "light": "red"
+        },
+        "interferometer": {
+          "lineId": "yellow",
+          "concealed": false,
+          "expanderFocalLength": 0.02,
+          "armLength": 0.15,
+          "splitterToScreen": 0.25,
+          "coarse": 0.004,
+          "fine": 0,
+          "tiltX": 0,
+          "tiltY": 0,
+          "counterReference": null
+        },
+        "screenFov": 0.04,
+        "exposure": 1,
+        "showProfile": true,
+        "notebook": {}
+      },
+      "fields": [
+        {
+          "id": "f-mich-N",
+          "label": "Fringes counted N",
+          "unit": ""
+        },
+        {
+          "id": "f-mich-dd",
+          "label": "Mirror displacement Δd",
+          "unit": "µm"
+        },
+        {
+          "id": "f-mich-lambda",
+          "label": "Wavelength λ",
+          "unit": "nm"
+        }
+      ],
+      "concealUnknowns": true,
+      "allowNotebook": true
+    }
+  ]
+}
