@@ -29,8 +29,21 @@ for confirmation on first launch (*More info → Run anyway*).
 `npm run dist:win:setup` builds installers instead (`…-setup.exe`: per-user, no administrator
 rights, registers the exam file types). Building those on Linux needs `wine`; on Windows it works
 as is. The *Windows builds* workflow on GitHub builds all four files (portable and installer, both
-editions) on a Windows machine: run it from the Actions tab, or push a `v*` tag, and download them
-from the run's artifacts.
+editions) on a Windows machine.
+
+### Publishing a release
+
+The four files of each version are on the repository's
+[Releases](https://github.com/mus092tafa/virtual-optics-lab/releases) page. To publish a new one,
+on `main`:
+
+```bash
+npm version minor        # or patch / major: sets the version, commits and tags it (v1.1.0)
+git push --follow-tags   # the tag starts the build, which publishes the release
+```
+
+Running the workflow by hand from the Actions tab builds the files without publishing them; they
+are then under the run's artifacts.
 
 ## Exam mode
 
