@@ -60,6 +60,7 @@ interface ClassroomView {
 }
 
 export interface RoomInfo {
+  teacherName?: string
   roomName: string
   examTitle: string
   durationMinutes: number

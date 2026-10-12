@@ -32,13 +32,22 @@ The student laptops need no firewall change: they only send requests to the teac
 ## Setting up a laptop (once)
 
 *Settings* on the start screen holds what is set once per laptop and then left alone; students do
-not need it. *Classroom connection* has two choices:
+not need it.
 
-- **Find the classroom automatically** (the default): the laptop searches the lab network for the
-  teacher's computer.
-- **Use the teacher's address**: for a network where the search finds nothing. Enter the address
-  shown on the teacher's classroom screen (for example `192.168.0.10`); it is kept on the laptop,
-  so give the teacher's laptop a fixed address on the router.
+On the **teacher's laptop**, *Your name* is what the students see beside the classroom (for
+example `Dr. Hassan`). Without one they see the computer's name. Nothing else is set there: the
+laptop's address is found by itself each time a classroom is opened.
+
+On a **student laptop**, *Classroom connection* has two choices:
+
+- **Find the classroom automatically** (the default): the laptop searches the lab network for any
+  teacher's computer. Nothing is set up, and it works for every teacher.
+- **Use saved teachers' computers**: for a network where the search finds nothing. While a
+  classroom is open on the teacher's laptop, press *Find teachers on this network*; each teacher
+  found is listed by name, and *Save this teacher* keeps that computer on the laptop. Several
+  teachers can be saved, and the one with a classroom open is the one that appears when joining.
+  An address can also be typed (it is shown on the teacher's classroom screen). A saved computer is
+  remembered by its address, so give each teacher's laptop a fixed address on the router.
 
 *Connection check* on the same page shows, while a classroom is open, whether the laptop reaches
 it with the saved setting.
@@ -55,8 +64,8 @@ it with the saved setting.
      (*CSV template* gives the column layout).
 2. **Open a classroom** for the exam and give the sitting a name (for example the group).
 3. **Students join**: on each laptop *Join an exam*, enter name and class and press *Join the
-   exam*. The open classroom is found by itself; a choice appears only when several classrooms
-   are open on the same network.
+   exam*. The open classroom is found by itself and shown with the teacher's name; a choice
+   appears only when several classrooms are open on the same network.
 4. **Start the exam** when everyone is in. The clock starts for everyone at that moment and all
    laptops count down to the same deadline. Late arrivals get the remaining time.
 5. While it runs the teacher sees who is working and who has submitted, can add 5 minutes for
@@ -142,6 +151,9 @@ electron/preload.cjs       the only bridge between page and shell
 ```
 
 The classroom listens on TCP 47800 (HTTP + JSON) and answers the students' search on UDP 47801.
+*Find teachers on this network* also asks every address that shares the laptop's first three
+numbers (`GET /api/room` on TCP 47800), so it finds a classroom on a network that drops broadcasts
+but not one that had to take another port.
 Teacher actions exist only as calls from the teacher's own window; none is reachable over the
 network. `npm run desktop` runs the teacher edition from source and `npm run desktop:student` the
 student edition; two instances on one machine find each other, which is how the flow is tested.

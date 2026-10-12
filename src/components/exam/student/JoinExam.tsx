@@ -5,7 +5,7 @@ import type { Sitting } from '../../../exam/sitting'
 import type { ExamPaper } from '../../../exam/types'
 import { BrandMark } from '../BrandMark'
 import { plural } from '../shared'
-import { ROOM_STATE_LABELS, useClassrooms } from '../useClassrooms'
+import { roomDetails, useClassrooms } from '../useClassrooms'
 import { deviceId, saveTicket } from './ticket'
 
 interface Props {
@@ -132,9 +132,7 @@ export function JoinExam({ paper, onBack, onSettings, onStart }: Props) {
                   <div className="room-row found">
                     <div>
                       <strong>{rooms[0].roomName}</strong>
-                      <span className="panel-sub">
-                        {rooms[0].examTitle} · {ROOM_STATE_LABELS[rooms[0].state] ?? rooms[0].state}
-                      </span>
+                      <span className="panel-sub">{roomDetails(rooms[0])}</span>
                     </div>
                   </div>
                 )}
@@ -145,9 +143,7 @@ export function JoinExam({ paper, onBack, onSettings, onStart }: Props) {
                         <input type="radio" name="classroom" checked={room?.base === entry.base} onChange={() => setChosen(entry.base)} />
                         <span>
                           <strong>{entry.roomName}</strong>
-                          <span className="option-text">
-                            {entry.examTitle} · {ROOM_STATE_LABELS[entry.state] ?? entry.state}
-                          </span>
+                          <span className="option-text">{roomDetails(entry)}</span>
                         </span>
                       </label>
                     ))}

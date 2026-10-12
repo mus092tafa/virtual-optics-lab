@@ -153,6 +153,8 @@ export interface SessionRecord {
   version: 1
   id: string
   roomName: string
+  /** The teacher as the students see it beside the classroom; set when the classroom is opened. */
+  teacherName?: string
   exam: ExamMaster
   paper: ExamPaper
   createdAt: number

@@ -6,7 +6,7 @@ const crypto = require('node:crypto')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
-const { Classroom, discoverClassrooms, hostClassroom, localAddresses } = require('./classroom.cjs')
+const { Classroom, discoverClassrooms, hostClassroom, localAddresses, scanClassrooms } = require('./classroom.cjs')
 const { createJsonStore } = require('./storage.cjs')
 
 const EXAM_FILE = /\.(opticsexam|opticsmaster|opticsanswers)$/i
@@ -177,10 +177,12 @@ async function closeClassroom() {
   await closing.host.close()
 }
 
-async function openClassroom(_event, sessionId) {
+async function openClassroom(_event, { sessionId, teacherName }) {
   await closeClassroom()
   const session = sessions.read(sessionId)
   if (!session) throw new Error('The sitting is no longer in the records.')
+  // Students tell classrooms apart by the teacher; without a name they see the computer's.
+  session.teacherName = (typeof teacherName === 'string' && teacherName.trim()) || os.hostname()
   let saveTimer
   let publishTimer
   const flush = () => {
@@ -314,7 +316,7 @@ if (!app.requestSingleInstanceLock()) {
 
   app.whenReady().then(() => {
     openedFile = examFileIn(process.argv)
-    ipcMain.handle('app:info', () => ({ edition, version: app.getVersion() }))
+    ipcMain.handle('app:info', () => ({ edition, version: app.getVersion(), hostName: os.hostname() }))
     ipcMain.handle('file:takeOpened', () => {
       const file = openedFile
       openedFile = null
@@ -323,7 +325,11 @@ if (!app.requestSingleInstanceLock()) {
     ipcMain.handle('file:open', openFile)
     ipcMain.handle('file:save', saveFile)
     ipcMain.handle('documents:savePdf', savePdf)
-    ipcMain.handle('classroom:discover', () => discoverClassrooms())
+    ipcMain.handle('classroom:discover', async (_event, options) => {
+      if (!options?.thorough) return discoverClassrooms()
+      const found = (await Promise.all([scanClassrooms(), discoverClassrooms()])).flat()
+      return [...new Map(found.map((room) => [`${room.address}:${room.port}`, room])).values()]
+    })
     if (edition === 'admin') registerAdminHandlers()
 
     createWindow()

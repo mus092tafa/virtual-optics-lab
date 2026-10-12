@@ -59,7 +59,9 @@ class Classroom {
 
   roomInfo() {
     const { id, roomName, state, exam } = this.session
-    return { app: 'virtual-optics-lab', id, roomName, examTitle: exam.title, durationMinutes: exam.durationMinutes, state, students: this.session.students.length }
+    // The teacher's name is what tells two classrooms on one network apart for a student.
+    const teacherName = cleanText(this.session.teacherName)
+    return { app: 'virtual-optics-lab', id, teacherName, roomName, examTitle: exam.title, durationMinutes: exam.durationMinutes, state, students: this.session.students.length }
   }
 
   /** Answers are accepted until the deadline plus the grace period. */
@@ -294,6 +296,64 @@ function localAddresses() {
   return addresses
 }
 
+/** A classroom as the student's laptop lists it. */
+const describeRoom = (address, port, room) => ({
+  address,
+  port,
+  teacherName: cleanText(room.teacherName),
+  roomName: String(room.roomName ?? ''),
+  examTitle: String(room.examTitle ?? ''),
+  state: String(room.state ?? ''),
+})
+
+/** Every address that shares its first three numbers with one of this machine's own: the laptops on the same router. */
+function neighbourAddresses() {
+  const hosts = new Set()
+  for (const { address } of localAddresses()) {
+    const prefix = address.split('.').slice(0, 3).join('.')
+    for (let last = 1; last <= 254; last++) hosts.add(`${prefix}.${last}`)
+  }
+  return [...hosts]
+}
+
+/** Asks one address whether a classroom is open there; null when none answers in time. */
+function probeClassroom(address, port, timeoutMs) {
+  return new Promise((resolve) => {
+    const request = http.get({ host: address, port, path: '/api/room', timeout: timeoutMs }, (response) => {
+      let text = ''
+      response.setEncoding('utf8')
+      response.on('data', (chunk) => {
+        text += chunk
+        if (text.length > 4096) request.destroy()
+      })
+      response.on('end', () => {
+        try {
+          const room = JSON.parse(text)
+          resolve(room?.app === 'virtual-optics-lab' ? { id: String(room.id), room: describeRoom(address, port, room) } : null)
+        } catch {
+          resolve(null)
+        }
+      })
+    })
+    request.on('timeout', () => request.destroy())
+    request.on('error', () => resolve(null))
+    request.on('close', () => resolve(null))
+  })
+}
+
+/**
+ * Looks for classrooms by asking every neighbouring address in turn. Slower
+ * and noisier than the search below, but it gets through a network that does
+ * not pass broadcasts on. Finds classrooms on the usual port only.
+ */
+async function scanClassrooms({ port = HTTP_PORT, timeoutMs = 900, hosts = neighbourAddresses() } = {}) {
+  const answers = await Promise.all(hosts.map((address) => probeClassroom(address, port, timeoutMs)))
+  // A teacher's machine with two addresses on the network answers at both: list its classroom once.
+  const rooms = new Map()
+  for (const answer of answers) if (answer && !rooms.has(answer.id)) rooms.set(answer.id, answer.room)
+  return [...rooms.values()]
+}
+
 function listen(server, port) {
   return new Promise((resolve, reject) => {
     server.once('error', reject)
@@ -368,13 +428,7 @@ function discoverClassrooms({ timeoutMs = 1200, discoveryPort = DISCOVERY_PORT }
       try {
         const room = JSON.parse(message.toString('utf8'))
         if (room?.app !== 'virtual-optics-lab' || typeof room.port !== 'number') return
-        rooms.set(`${remote.address}:${room.port}`, {
-          address: remote.address,
-          port: room.port,
-          roomName: String(room.roomName ?? ''),
-          examTitle: String(room.examTitle ?? ''),
-          state: String(room.state ?? ''),
-        })
+        rooms.set(`${remote.address}:${room.port}`, describeRoom(remote.address, room.port, room))
       } catch {
         // Not a classroom reply.
       }
@@ -388,4 +442,4 @@ function discoverClassrooms({ timeoutMs = 1200, discoveryPort = DISCOVERY_PORT }
   })
 }
 
-module.exports = { Classroom, ClassroomError, GRACE_MS, HTTP_PORT, DISCOVERY_PORT, createRequestHandler, discoverClassrooms, hostClassroom, localAddresses }
+module.exports = { Classroom, ClassroomError, GRACE_MS, HTTP_PORT, DISCOVERY_PORT, createRequestHandler, discoverClassrooms, hostClassroom, localAddresses, scanClassrooms }

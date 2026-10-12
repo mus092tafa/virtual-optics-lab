@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { FILE_EXTENSIONS, parseAnswersFile, parseJson, parseMaster, toPaper } from '../../../exam/format'
+import { loadSettings } from '../../../exam/settings'
 import type { ExamMaster } from '../../../exam/types'
 import { desktop, errorMessage } from '../../../platform/desktop'
 import type { OpenedFile } from '../../../platform/desktop'
@@ -107,7 +108,7 @@ export default function AdminArea({ onHome, incomingFile }: Props) {
   const openSession = async (sessionId: string, open: boolean) => {
     setMessage('')
     try {
-      if (open) setClassroom(await desktop().openClassroom(sessionId))
+      if (open) setClassroom(await desktop().openClassroom({ sessionId, teacherName: loadSettings(localStorage).teacherName }))
     } catch (failure) {
       setMessage(`The classroom could not be opened on the network: ${errorMessage(failure)}`)
     }

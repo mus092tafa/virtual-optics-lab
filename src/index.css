@@ -2179,6 +2179,12 @@ textarea.exam-input {
   border-left: 3px solid var(--ok);
 }
 
+/* An address typed by hand, with the button that takes it. */
+.address-add {
+  display: flex;
+  gap: 8px;
+}
+
 /* A choice between a few described alternatives. */
 .option-list {
   display: flex;

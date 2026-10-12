@@ -32,17 +32,42 @@ describe('settings', () => {
 
   it('survive a restart', () => {
     const store = memoryStore()
-    saveSettings({ connection: { mode: 'address', address: ' 192.168.0.10 ' } }, store)
-    expect(loadSettings(store)).toEqual({ connection: { mode: 'address', address: '192.168.0.10' } })
+    saveSettings({ connection: { mode: 'address', teachers: [{ name: ' Dr.  Hassan ', address: ' 192.168.0.10 ' }] }, teacherName: ' Dr. Mawla ' }, store)
+    expect(loadSettings(store)).toEqual({ connection: { mode: 'address', teachers: [{ name: 'Dr. Hassan', address: '192.168.0.10' }] }, teacherName: 'Dr. Mawla' })
   })
 
-  it('keep the address when the search is chosen again', () => {
-    expect(parseSettings({ connection: { mode: 'auto', address: '192.168.0.10' } })).toEqual({ connection: { mode: 'auto', address: '192.168.0.10' } })
+  it('keep the saved computers when the search is chosen again', () => {
+    const teachers = [{ name: 'Dr. Hassan', address: '192.168.0.10' }]
+    expect(parseSettings({ connection: { mode: 'auto', teachers } }).connection).toEqual({ mode: 'auto', teachers })
+  })
+
+  it('keep several teachers, each computer once', () => {
+    const { connection } = parseSettings({
+      connection: {
+        mode: 'address',
+        teachers: [
+          { name: 'Dr. Hassan', address: '192.168.0.10' },
+          { name: 'Dr. Salim', address: '192.168.0.11' },
+          { name: 'Again', address: 'http://192.168.0.10/' },
+          { name: 'Nobody', address: 'not an address' },
+        ],
+      },
+    })
+    expect(connection.mode).toBe('address')
+    expect(connection.teachers).toEqual([
+      { name: 'Dr. Hassan', address: '192.168.0.10' },
+      { name: 'Dr. Salim', address: '192.168.0.11' },
+    ])
+  })
+
+  it('take over the single address saved by an earlier version', () => {
+    expect(parseSettings({ connection: { mode: 'address', address: '192.168.0.10' } }).connection).toEqual({ mode: 'address', teachers: [{ name: '', address: '192.168.0.10' }] })
   })
 
   it('fall back to the search when what is stored is unusable', () => {
     expect(parseSettings({ connection: { mode: 'address', address: 'not an address' } })).toEqual(DEFAULT_SETTINGS)
     expect(parseSettings({ connection: { mode: 'address' } })).toEqual(DEFAULT_SETTINGS)
+    expect(parseSettings({ connection: { mode: 'address', teachers: 'nonsense' }, teacherName: 7 })).toEqual(DEFAULT_SETTINGS)
     expect(parseSettings('nonsense')).toEqual(DEFAULT_SETTINGS)
     const store = memoryStore()
     store.setItem('virtual-optics-lab/settings', '{broken')

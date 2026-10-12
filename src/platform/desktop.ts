@@ -23,6 +23,8 @@ export interface FileChoice {
 export interface DiscoveredRoom {
   address: string
   port: number
+  /** The teacher who opened the classroom; empty from a teacher's edition that does not send it. */
+  teacherName: string
   roomName: string
   examTitle: string
   state: string
@@ -38,14 +40,15 @@ export interface ClassroomStatus {
 }
 
 interface DesktopApi {
-  info(): Promise<{ edition: Edition; version: string }>
+  info(): Promise<{ edition: Edition; version: string; hostName: string }>
   openFile(options: FileChoice & { title: string }): Promise<OpenedFile | null>
   saveFile(options: FileChoice & { defaultName: string; text: string }): Promise<string | null>
   savePdf(options: { defaultName: string; html: string }): Promise<string | null>
   savePdfs(options: { items: { name: string; html: string }[] }): Promise<{ directory: string; count: number } | null>
   takeOpenedFile(): Promise<OpenedFile | null>
   onFileOpened(listener: (file: OpenedFile) => void): () => void
-  discoverClassrooms(): Promise<DiscoveredRoom[]>
+  /** `thorough` also asks every neighbouring address, for a network the quick search does not get through. */
+  discoverClassrooms(options?: { thorough: boolean }): Promise<DiscoveredRoom[]>
 
   listExams(): Promise<unknown[]>
   saveExam(exam: ExamMaster): Promise<void>
@@ -58,7 +61,7 @@ interface DesktopApi {
   importAnswers(options: { sessionId: string; file: AnswersFile }): Promise<SessionRecord>
   removeStudent(options: { sessionId: string; studentId: string }): Promise<SessionRecord>
   finishSession(sessionId: string): Promise<SessionRecord>
-  openClassroom(sessionId: string): Promise<ClassroomStatus>
+  openClassroom(options: { sessionId: string; teacherName: string }): Promise<ClassroomStatus>
   classroomStatus(): Promise<ClassroomStatus | null>
   closeClassroom(): Promise<void>
   classroomCommand(options: { command: 'begin' | 'end' | 'extend'; minutes?: number }): Promise<ClassroomStatus | null>

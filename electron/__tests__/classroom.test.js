@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import classroomModule from '../classroom.cjs'
 
-const { Classroom, GRACE_MS, discoverClassrooms, hostClassroom } = classroomModule
+const { Classroom, GRACE_MS, discoverClassrooms, hostClassroom, scanClassrooms } = classroomModule
 
 const MINUTE = 60_000
 
@@ -221,5 +221,28 @@ describe('classroom on the network', () => {
     expect(host.discoverable).toBe(true)
     const rooms = await discoverClassrooms({ timeoutMs: 400, discoveryPort })
     expect(rooms.some((room) => room.port === host.port && room.roomName === 'Group A' && room.examTitle === 'Optics midterm')).toBe(true)
+  })
+
+  it('tells the students which teacher opened it', async () => {
+    const { classroom, session } = setup()
+    session.teacherName = '  Dr.   Hassan '
+    const discoveryPort = 47000 + Math.floor(Math.random() * 500)
+    host = await hostClassroom(classroom, { port: 0, discoveryPort })
+    const rooms = await discoverClassrooms({ timeoutMs: 400, discoveryPort })
+    expect(rooms.find((room) => room.port === host.port)?.teacherName).toBe('Dr. Hassan')
+  })
+
+  it('is found by asking the neighbouring addresses when the search gets no reply', async () => {
+    const { classroom, session } = setup()
+    session.teacherName = 'Dr. Hassan'
+    host = await hostClassroom(classroom, { port: 0, discoveryPort: null })
+    expect(host.discoverable).toBe(false)
+    // The machine answers at both of its addresses; its classroom is listed once.
+    const rooms = await scanClassrooms({ port: host.port, timeoutMs: 400, hosts: ['127.0.0.1', '127.0.0.2'] })
+    expect(rooms).toEqual([{ address: '127.0.0.1', port: host.port, teacherName: 'Dr. Hassan', roomName: 'Group A', examTitle: 'Optics midterm', state: 'lobby' }])
+  })
+
+  it('finds nothing where no classroom is open', async () => {
+    expect(await scanClassrooms({ port: 1, timeoutMs: 300, hosts: ['127.0.0.1'] })).toEqual([])
   })
 })

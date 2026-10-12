@@ -3,6 +3,7 @@ import { resultsCsv } from '../../../exam/csv'
 import { answerSheetHtml, resultsHtml } from '../../../exam/documents'
 import { FILE_EXTENSIONS, fileSafe, isAnswered, parseAnswersFile, parseJson } from '../../../exam/format'
 import { studentTotal } from '../../../exam/grading'
+import { loadSettings } from '../../../exam/settings'
 import type { SessionRecord, StudentRecord } from '../../../exam/types'
 import { desktop, errorMessage } from '../../../platform/desktop'
 import type { ClassroomStatus } from '../../../platform/desktop'
@@ -135,7 +136,9 @@ export function SessionView({ sessionId, classroom, onClassroom, onBack, initial
               <div>
                 <span className="field-label">Students join from “Join an exam” on their laptops</span>
                 <p>
-                  {classroom.discoverable ? 'The students’ laptops find this classroom by themselves. If one does not, enter this address under Settings on that laptop:' : 'The automatic search is unavailable on this computer; enter this address under Settings on each student laptop:'}
+                  {classroom.discoverable
+                    ? `The students’ laptops find this classroom by themselves${classroom.session.teacherName ? `, under the name “${classroom.session.teacherName}”` : ''}. If one does not, press “Find teachers on this network” under Settings on that laptop, or enter this address there:`
+                    : 'The automatic search is unavailable on this computer. Press “Find teachers on this network” under Settings on each student laptop, or enter this address there:'}
                 </p>
                 <p className="address-list mono">
                   {classroom.addresses.length > 0
@@ -174,7 +177,7 @@ export function SessionView({ sessionId, classroom, onClassroom, onBack, initial
           {!open && session.state !== 'ended' && !overtime && (
             <div className="classroom-box">
               <p>This classroom is not open on the network. {session.state === 'running' ? 'The exam clock is still running.' : ''}</p>
-              <button className="chip primary" onClick={() => attempt(async () => onClassroom(await desktop().openClassroom(session.id)))}>
+              <button className="chip primary" onClick={() => attempt(async () => onClassroom(await desktop().openClassroom({ sessionId: session.id, teacherName: loadSettings(localStorage).teacherName })))}>
                 {session.state === 'running' ? 'Resume the classroom' : 'Open the classroom'}
               </button>
             </div>
@@ -184,7 +187,7 @@ export function SessionView({ sessionId, classroom, onClassroom, onBack, initial
             <div className="classroom-box">
               <p>The exam time ran out while this classroom was closed. Laptops that are still on can hand in the last answers they kept; otherwise the sitting ends with the answers received so far.</p>
               <div className="exam-actions">
-                <button className="chip primary" onClick={() => attempt(async () => onClassroom(await desktop().openClassroom(session.id)))}>
+                <button className="chip primary" onClick={() => attempt(async () => onClassroom(await desktop().openClassroom({ sessionId: session.id, teacherName: loadSettings(localStorage).teacherName })))}>
                   Collect from the laptops
                 </button>
                 <button className="chip" onClick={() => attempt(() => desktop().finishSession(session.id))}>
