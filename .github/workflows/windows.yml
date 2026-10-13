@@ -2,9 +2,10 @@ name: Windows builds
 
 # Builds both editions as a portable exe and as an installer. The installer
 # cannot be built on Linux without wine, so it is built here. Every push to
-# `main` (a merge of `develop`) publishes the four files as a GitHub release
-# named after the version in package.json, which must therefore be new; a
-# manual run only keeps them as artifacts of the run.
+# `main` (a merge of `develop`) publishes the four files as a GitHub release.
+# Its version is the one in package.json or, when that has been released
+# already, the next free patch version of it. A manual run only keeps the
+# files as artifacts of the run.
 on:
   workflow_dispatch:
   push:
@@ -22,17 +23,24 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - name: Check that the version in package.json has not been released
+      - name: Choose the version to release
         id: version
         if: github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          tag="v$(node -p "require('./package.json').version")"
-          if [ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]; then
-            echo "::error::$tag is already released. Raise the version on develop ('npm version minor --no-git-tag-version') before merging into main."
-            exit 1
-          fi
-          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          # package.json names the major and minor version; the patch number rises past every release of that pair.
+          released="$(git ls-remote --tags --refs origin 'refs/tags/v*' | sed 's#.*refs/tags/v##')"
+          version="$(RELEASED="$released" node -e '
+            const [major, minor, patch] = require("./package.json").version.split(".").map(Number)
+            const patches = process.env.RELEASED.split(/\s+/)
+              .map((tag) => /^(\d+)\.(\d+)\.(\d+)$/.exec(tag))
+              .filter((match) => match && Number(match[1]) === major && Number(match[2]) === minor)
+              .map((match) => Number(match[3]))
+            console.log([major, minor, Math.max(patch, ...patches.map((released) => released + 1))].join("."))
+          ')"
+          # The files are named after this version; the change is not committed.
+          npm version "$version" --no-git-tag-version --allow-same-version
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
       - run: npm ci
       - run: npm run build
       - run: npm run build:student

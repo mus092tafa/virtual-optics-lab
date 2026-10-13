@@ -65,11 +65,13 @@ npm run dist:win         # build both Windows editions into release/teacher and 
 
 - Work on `develop`. Commit there and push there; never commit or push directly to `main`.
 - `main` only ever receives merges of `develop`, and every push to `main` publishes a GitHub
-  release: the *Windows builds* workflow (`.github/workflows/windows.yml`) builds the four Windows
-  files, tags the commit `v<version>` and creates the release from the version in `package.json`.
-- A merge into `main` is therefore a release. Do it only when asked, and raise the version on
-  `develop` first (`npm version patch|minor|major --no-git-tag-version`, then commit and push):
-  the workflow fails if that version has already been released.
+  release by itself: the *Windows builds* workflow (`.github/workflows/windows.yml`) builds the
+  four Windows files, tags the commit and creates the release.
+- The release takes the version in `package.json`, or the next free patch number when that version
+  has been released (1.1.0, then 1.1.1, …; the repository's `package.json` is not changed). For a
+  release with new features, raise the version on `develop` first
+  (`npm version minor|major --no-git-tag-version`, then commit and push).
+- A merge into `main` is therefore a release. Do it only when asked.
 - Merge with `git checkout main && git merge --ff-only develop && git push`, then return to
   `develop`.
 
