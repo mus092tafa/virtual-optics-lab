@@ -1,13 +1,14 @@
 name: Windows builds
 
 # Builds both editions as a portable exe and as an installer. The installer
-# cannot be built on Linux without wine, so it is built here. A `v*` tag
-# publishes the four files as a GitHub release; a manual run only keeps them
-# as artifacts of the run.
+# cannot be built on Linux without wine, so it is built here. Every push to
+# `main` (a merge of `develop`) publishes the four files as a GitHub release
+# named after the version in package.json, which must therefore be new; a
+# manual run only keeps them as artifacts of the run.
 on:
   workflow_dispatch:
   push:
-    tags: ['v*']
+    branches: [main]
 
 permissions:
   contents: write
@@ -21,16 +22,18 @@ jobs:
         with:
           node-version: 24
           cache: npm
-      - run: npm ci
-      - name: Check that the tag is the version in package.json
-        if: startsWith(github.ref, 'refs/tags/v')
+      - name: Check that the version in package.json has not been released
+        id: version
+        if: github.ref == 'refs/heads/main'
         shell: bash
         run: |
-          version="v$(node -p "require('./package.json').version")"
-          if [ "$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::The tag is $GITHUB_REF_NAME but package.json says $version. Use 'npm version' to make both."
+          tag="v$(node -p "require('./package.json').version")"
+          if [ -n "$(git ls-remote --tags origin "refs/tags/$tag")" ]; then
+            echo "::error::$tag is already released. Raise the version on develop ('npm version minor --no-git-tag-version') before merging into main."
             exit 1
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+      - run: npm ci
       - run: npm run build
       - run: npm run build:student
       - run: npx electron-builder --win portable nsis --x64 --config electron-builder.admin.json --publish never
@@ -43,10 +46,11 @@ jobs:
             release/student/*.exe
           if-no-files-found: error
       - name: Publish the release
-        if: startsWith(github.ref, 'refs/tags/v')
+        if: github.ref == 'refs/heads/main'
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.version.outputs.tag }}
         run: |
           cat > notes.md <<'NOTES'
           For 64-bit Windows 10 and 11.
@@ -58,4 +62,5 @@ jobs:
 
           The installer needs no administrator rights and lets exam files be opened by double-clicking them. The files are not code-signed, so Windows SmartScreen asks for confirmation on first launch (*More info → Run anyway*).
           NOTES
-          gh release create "$GITHUB_REF_NAME" release/teacher/*.exe release/student/*.exe --verify-tag --title "Virtual Optics Lab ${GITHUB_REF_NAME#v}" --notes-file notes.md --generate-notes
+          # Creates the tag on the commit that was built.
+          gh release create "$TAG" release/teacher/*.exe release/student/*.exe --target "$GITHUB_SHA" --title "Virtual Optics Lab ${TAG#v}" --notes-file notes.md --generate-notes

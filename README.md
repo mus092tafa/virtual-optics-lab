@@ -34,13 +34,21 @@ editions) on a Windows machine.
 ### Publishing a release
 
 The four files of each version are on the repository's
-[Releases](https://github.com/mus092tafa/virtual-optics-lab/releases) page. To publish a new one,
-on `main`:
+[Releases](https://github.com/mus092tafa/virtual-optics-lab/releases) page. Work is committed to
+`develop`; merging `develop` into `main` publishes a release named after the version in
+`package.json`, which must be one that has not been released yet:
 
 ```bash
-npm version minor        # or patch / major: sets the version, commits and tags it (v1.1.0)
-git push --follow-tags   # the tag starts the build, which publishes the release
+# on develop
+npm version minor --no-git-tag-version   # or patch / major: 1.0.0 -> 1.1.0
+git commit -am "Version 1.1.0" && git push
+
+git checkout main && git merge --ff-only develop && git push   # starts the build and the release
+git checkout develop
 ```
+
+The *Windows builds* workflow then builds the four files, tags the commit `v1.1.0` and publishes
+the release. If the version was already released, the workflow fails and nothing is published.
 
 Running the workflow by hand from the Actions tab builds the files without publishing them; they
 are then under the run's artifacts.

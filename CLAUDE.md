@@ -61,6 +61,18 @@ npm run desktop:student  # build and open the student edition
 npm run dist:win         # build both Windows editions into release/teacher and release/student
 ```
 
+## Branches and releases
+
+- Work on `develop`. Commit there and push there; never commit or push directly to `main`.
+- `main` only ever receives merges of `develop`, and every push to `main` publishes a GitHub
+  release: the *Windows builds* workflow (`.github/workflows/windows.yml`) builds the four Windows
+  files, tags the commit `v<version>` and creates the release from the version in `package.json`.
+- A merge into `main` is therefore a release. Do it only when asked, and raise the version on
+  `develop` first (`npm version patch|minor|major --no-git-tag-version`, then commit and push):
+  the workflow fails if that version has already been released.
+- Merge with `git checkout main && git merge --ff-only develop && git push`, then return to
+  `develop`.
+
 ## Architecture
 
 ```text
