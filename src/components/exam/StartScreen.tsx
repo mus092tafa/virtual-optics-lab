@@ -106,8 +106,11 @@ export function StartScreen({ notice, onLab, onJoin, onOpenFile, onSettings, onA
               </button>
 
               {TOPICS.map((topic) => (
-                <div key={topic.id} className="catalogue-topic">
-                  <h3>{topic.name}</h3>
+                <div key={topic.id} className="catalogue-topic" data-topic={topic.id}>
+                  <h3>
+                    <span className="topic-dot" aria-hidden="true" />
+                    {topic.name}
+                  </h3>
                   <div className="catalogue-grid">
                     {topic.experiments.map(experiment).map((entry) => (
                       <button

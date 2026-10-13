@@ -6,6 +6,9 @@
 import { apertureFromDarkRing } from '../physics/airy'
 import { laserLine } from '../physics/constants'
 import { slitWidthFromCentralMaximum } from '../physics/diffraction'
+import { DEFAULT_VERTEX_DISTANCE } from '../physics/constants'
+import { maxAccommodation } from '../physics/eye'
+import type { EyeSolution } from '../physics/eye'
 import { wavelengthFromOrder } from '../physics/grating'
 import { wavelengthFromFringeSpacing } from '../physics/interference'
 import { focalLengthFromConjugates, magnification } from '../physics/lenses'
@@ -15,6 +18,7 @@ import type { BenchSolution } from '../physics/optics'
 import { malusTransmission } from '../physics/polarization'
 import { indexFromMinimumDeviation } from '../physics/prism'
 import { indexFromAngles, indexFromBrewsterAngle } from '../physics/refraction'
+import { objectVergence, vergenceAtCornea } from '../physics/spectacles'
 import type { SurfaceSolution } from '../physics/surface'
 import type { BenchComponent } from '../physics/types'
 import { cm, degToRad, formatNumber, fromMeters, mm, perMm, radToDeg, toPerMm, um } from '../physics/units'
@@ -49,6 +53,7 @@ export interface AnalysisContext {
   surface: SurfaceSolution | null
   michelson: MichelsonSolution | null
   prism: PrismContext | null
+  eye: EyeSolution | null
 }
 
 /** Straight-line graph of the recorded rows, from which a quantity is read off the slope or intercept. */
@@ -170,6 +175,23 @@ const FRAUNHOFER_ASSUMPTIONS = [
   'Scalar wave theory; the slit is much longer than it is wide.',
   'The lab reports N_F and warns when the far-field condition fails; a Fresnel model is available.',
 ]
+
+const EYE_ASSUMPTIONS = [
+  'Schematic eye (Gullstrand–Emsley): one corneal surface and a lens with two, in paraxial optics.',
+  'Curvatures are set and powers follow from them: P = (n′ − n)/r for each surface.',
+  'The eye accommodates by itself as far as its age allows; the largest accommodation is Hofstetter’s population average, 18.5 − 0.30 × age dioptres, and individual eyes differ from it by several dioptres.',
+  'Blur is the geometric blur disc of the pupil: it is reliable from about 0.25 D of defocus upward.',
+  'The sharpness grade compares the blur disc with the stroke width of the letters; it is not a measurement of visual acuity.',
+  'Not modelled: astigmatism, spherical and chromatic aberration, diffraction at the pupil, and the processing of the image by the retina and the brain.',
+]
+
+/** Vertex distance of the glasses on the eye (the usual 12 mm when none are worn). */
+function vertexDistanceOf(context: AnalysisContext): number {
+  return context.eye?.setup.glasses?.vertexDistance ?? DEFAULT_VERTEX_DISTANCE
+}
+
+/** Dioptres of a point the given number of centimetres in front of the eye; 0 stands for a distant point. */
+const vergenceOfCm = (centimetres: number): number => (centimetres > 0 ? 1 / cm(centimetres) : 0)
 
 export const EXPERIMENTS: readonly ExperimentDefinition[] = [
   {
@@ -750,6 +772,94 @@ export const EXPERIMENTS: readonly ExperimentDefinition[] = [
         perSetting(result('m = −di/do', magnification(cm(values.do), cm(values.di)), '', context.bench?.imaging?.sequence?.magnification ?? null)),
       ]
     },
+  },
+  {
+    id: 'eye-accommodation',
+    number: 17,
+    title: 'The Eye — Accommodation and the Near Point',
+    short: 'Accommodation',
+    goal: 'See how the eye focuses on objects at different distances by changing the shape of its lens, and measure how far it can accommodate.',
+    procedure: [
+      'Look at the side view: the cornea does most of the focusing (about 43 D); the lens adds about 22 D when relaxed.',
+      'Move the object from far to near and watch the lens become more curved while the image stays sharp.',
+      'Find the far point: the greatest distance at which the image is sharp (for a normal eye it is a distant object: enter 0).',
+      'Find the near point: bring the object closer until the smallest letters just stop being sharp.',
+      'Record both; the notebook computes the amplitude of accommodation A = 1/near − 1/far.',
+      'Hold the lens relaxed and repeat: without accommodation only the far point is in focus. Try a smaller pupil.',
+    ],
+    equations: ['P = (n′ − n) / r   (each surface)', 'P_lens = P₁ + P₂ − (t/n) P₁ P₂', 'L′ = L + P     L = n / l', 'A = 1/l_near − 1/l_far   (distances in metres)', 'blur ≈ pupil × defocus'],
+    assumptions: EYE_ASSUMPTIONS,
+    fields: [
+      { key: 'near', label: 'near point', unit: 'cm', hint: 'nearest sharp distance', uncertainty: 0.5 },
+      { key: 'far', label: 'far point', unit: 'cm', hint: 'farthest sharp distance; 0 if distant', uncertainty: 0 },
+    ],
+    given: () => [],
+    analyze: (values, context) => [
+      result('A = 1/near − 1/far', vergenceOfCm(values.near) - vergenceOfCm(values.far), 'D', context.eye?.maxAccommodation ?? null, 2),
+      result('K = −1/far', -vergenceOfCm(values.far), 'D', context.eye?.refractiveError ?? null, 2),
+    ],
+  },
+  {
+    id: 'eye-glasses',
+    number: 18,
+    title: 'The Eye — Myopia, Hyperopia and Glasses',
+    short: 'Glasses',
+    goal: 'Find the glasses that correct a short-sighted and a long-sighted eye, and see how the lens moves the focus onto the retina.',
+    procedure: [
+      'The eye is too long (myopia): a distant chart is focused in front of the retina and looks blurred.',
+      'Put on the glasses and change their power until the letters are as sharp as they get. For a myopic eye take the weakest negative lens that does it: a stronger one is hidden by accommodation.',
+      'Record the power; the notebook converts it into the refractive error K of the eye, allowing for the vertex distance.',
+      'Choose hyperopia. A young eye sees the distant chart sharply by accommodating; hold the lens relaxed to find the positive lens that corrects it.',
+      'Compare the measurements with and without the glasses. Change the vertex distance of a strong lens and watch the correction change.',
+      'In experiment mode, try "Use an unknown eye".',
+    ],
+    equations: ['L′ = L + Fs   (at the glasses)', 'L_cornea = L′ / (1 − d L′)', 'Fs = K / (1 + d K)', 'K = Fs / (1 − d Fs)   (distant object)'],
+    assumptions: [...EYE_ASSUMPTIONS, 'The glasses are a thin lens on the axis of the eye; cylinder lenses and the thickness of the lens are not modelled.'],
+    fields: [{ key: 'power', label: 'Fs', unit: 'D', hint: 'glasses power that gives the sharpest chart', uncertainty: 0.25 }],
+    given: (context) => [
+      { label: 'Vertex distance d', value: `${fromMeters(vertexDistanceOf(context), 'mm').toFixed(0)} mm` },
+      {
+        label: 'Object',
+        value: context.eye && Number.isFinite(context.eye.setup.objectDistance) ? `${fromMeters(context.eye.setup.objectDistance, 'cm').toFixed(1)} cm from the cornea` : 'distant',
+      },
+    ],
+    analyze: (values, context) => {
+      const vertexDistance = vertexDistanceOf(context)
+      const objectDistance = context.eye?.setup.objectDistance ?? Infinity
+      // The glasses image the object at the eye's far point: K is the vergence they deliver to the cornea.
+      const error = vergenceAtCornea(objectVergence(objectDistance - vertexDistance), { power: values.power, vertexDistance })
+      return [result('K = L′ / (1 − d L′),  L′ = L + Fs', error, 'D', context.eye?.refractiveError ?? null, 2)]
+    },
+  },
+  {
+    id: 'eye-ageing',
+    number: 19,
+    title: 'The Eye — Ageing and Reading Glasses',
+    short: 'Ageing',
+    goal: 'Measure how the near point moves away as the lens stiffens with age, and correct the loss with reading glasses.',
+    procedure: [
+      'A normal eye of 20 years reads text at 40 cm: the lens accommodates and the image is sharp.',
+      'Increase the age. The lens can change its shape less and less; note the age at which the text at 40 cm stops being sharp.',
+      'At several ages, find the near point and record it with the age. The notebook computes the amplitude A = 1/near point.',
+      'The graph of A against age is a straight line: Hofstetter’s average falls by 0.30 D per year.',
+      'At 55 years, put on positive glasses and find the weakest power that makes the text at 40 cm sharp.',
+      'Move the object far away with the reading glasses on, and compare the young and the old eye with "Compare age".',
+    ],
+    equations: ['A = 18.5 − 0.30 × age   (dioptres, population average)', 'A = 1 / l_near   (normal eye, metres)', 'L_cornea = (L + Fs) / (1 − d (L + Fs))'],
+    assumptions: [...EYE_ASSUMPTIONS, 'Only the lens’s ability to change shape depends on age here. The cornea and the length of the eye are separate controls.'],
+    fields: [
+      { key: 'age', label: 'age', unit: 'years', hint: 'as set on the eye', uncertainty: 0 },
+      { key: 'near', label: 'near point', unit: 'cm', hint: 'nearest sharp distance', uncertainty: 0.5 },
+    ],
+    plot: {
+      xLabel: 'age (years)',
+      yLabel: 'A = 1/near point (D)',
+      relation: 'A = 18.5 − 0.30 × age: slope −0.30 D per year, intercept 18.5 D',
+      point: (values) => (values.near > 0 ? { x: values.age, y: vergenceOfCm(values.near) } : null),
+      interpret: (fit) => [scaled('slope', fit.slope, fit.slopeError, 'D/year', -0.3, 3), scaled('intercept', fit.intercept, fit.interceptError, 'D', 18.5, 1)],
+    },
+    given: () => [],
+    analyze: (values) => [perSetting(result('A = 1/near point', vergenceOfCm(values.near), 'D', maxAccommodation(values.age), 2))],
   },
 ]
 

@@ -59,9 +59,9 @@ See [docs/EXAMS.md](docs/EXAMS.md) for the room set-up, the procedure and the fi
 ## The laboratory
 
 The experiments are grouped by topic (Rays & Surfaces, Lenses & Mirrors, Laser Beams, Diffraction &
-Interference, Polarisation; see `src/education/topics.ts`). The start screen lists them all, and the
-laboratory shows the experiments of one topic at a time. Each experiment runs on one of three kinds
-of apparatus, called sections A, B and C below.
+Interference, Polarisation, The Eye; see `src/education/topics.ts`). The start screen lists them all,
+and the laboratory shows the experiments of one topic at a time. Each experiment runs on one of four
+kinds of apparatus, called sections A to D below.
 
 **Section A — Reflection and refraction.** A laser ray meets a plane mirror or an interface between
 two media. Drag the laser around the point of incidence, tilt the surface, choose the materials, and
@@ -92,6 +92,18 @@ lens, beam splitter, fixed mirror M1, and mirror M2 on a micrometer stage with t
 screen shows circular fringes when the mirrors are aligned and straight fringes when M2 is tilted.
 A fringe counter and a motorised scan let students measure the wavelength from λ = 2Δd/N.
 
+**Section D — Human eye.** A schematic eye (Gullstrand–Emsley) in side view, drawn to scale: the
+cornea, the pupil, the lens and the retina, with the rays from an object whose distance the student
+sets. The corneal radius and the length of the eye are the inputs; the powers follow from them
+(42.7 D for the cornea, 21.8 D for the relaxed lens, 60.5 D together). The eye accommodates by
+itself, as far as its age allows (Hofstetter's average, 18.5 − 0.30 × age dioptres), or the lens can
+be held. Myopia, hyperopia and presbyopia are settings of the length, the cornea and the age.
+Glasses of −10 to +10 D can be worn at a vertex distance of 0–16 mm. Beside the eye, a test chart
+(letters, text or a face) is shown as the eye images it: at its size on the retina and blurred by a
+disc that follows from the pupil and the defocus. Measurements are shown with and without the
+glasses, and for a second eye of another age. Astigmatism, aberrations, diffraction at the pupil
+and the processing by the retina and brain are not modelled.
+
 ### Experiments
 
 1. Law of reflection
@@ -110,6 +122,9 @@ A fringe counter and a motorised scan let students measure the wavelength from �
 14. Brewster's angle: refractive index from the angle of zero reflection
 15. Prism: refractive index by minimum deviation, and dispersion
 16. Concave mirror: focal length and radius of curvature
+17. The eye: accommodation and the near point
+18. The eye: myopia, hyperopia and the glasses that correct them
+19. The eye: ageing and reading glasses
 
 Each experiment has a guide and a lab notebook. The notebook turns recorded measurements into a
 result (for example f from do and di, or λ from the fringe spacing) and, on request, compares it
@@ -176,6 +191,8 @@ src/
     polarization.ts   linear polarisers, Malus's law          │
     michelson.ts      two-beam interference in the interferometer┘
     spectrum.ts       Planck spectrum, CIE colour matching
+    eye.ts            schematic eye: powers, accommodation, age, blur on the retina
+    spectacles.ts     vergence through a spectacle lens, correcting power
     optics.ts         system solver: bench layout -> light at the screen
     __tests__/        unit tests
   state/          lab state, actions, presets, demonstration sweeps

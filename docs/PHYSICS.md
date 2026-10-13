@@ -316,7 +316,94 @@ the screen. Moving M2 by d from the equal-arm position changes the optical path 
   from the spectrometer table); the index is what the student determines.
 - Assumptions: a single ray, the prism in air, no absorption, no multiple internal reflections.
 
-## 16. Lab notebook — `src/education/`
+## 16. The eye — `eye.ts`
+
+A schematic eye, traced paraxially from the cornea to the retina. Distances are measured from the
+corneal vertex; vergences are in dioptres at the cornea, negative for light diverging from a real
+object.
+
+- **Model: the Gullstrand–Emsley eye** (H. H. Emsley, *Visual Optics*, 1936). One corneal surface of
+  radius 7.8 mm; aqueous and vitreous of index 4/3; a lens of index 1.416.
+
+  | | Chamber depth | Front radius | Back radius | Thickness |
+  | --- | --- | --- | --- | --- |
+  | Relaxed | 3.6 mm | +10 mm | −6 mm | 3.6 mm |
+  | Accommodated (8.6 D) | 3.2 mm | +5 mm | −5 mm | 4.0 mm |
+
+- **Surface power** P = (n′ − n)/r. Cornea: (4/3 − 1)/7.8 mm = 42.74 D. Lens surfaces 8.27 D and
+  13.78 D; thick lens P₁ + P₂ − (t/n)P₁P₂ = 21.75 D. The whole eye is the product of the surface
+  matrices [1, 0; −P/n′, n/n′] and translations; its equivalent power is −n′C = 60.48 D and it
+  focuses a distant object 23.90 mm behind the cornea. That length is the *normal axial length*.
+  The same image position follows from the vergence equation L′ = L + P at each surface with
+  L₂ = L₁/(1 − (d/n)L₁) between them; the unit tests check the two against each other.
+- **Curvature is the input.** The student sets the corneal radius (7.0–8.6 mm) and the axial length
+  (21–27 mm). Powers are results and cannot be entered.
+- **Refractive error** K is the vergence at the cornea that the relaxed eye focuses on its retina:
+  0 for the normal eye, negative in myopia (far point 1/|K| in front of the eye), positive in
+  hyperopia (far point behind the eye). Near the normal eye 1 mm of axial length is about 2.6 D:
+  25.04 mm gives −3 D, 22.85 mm gives +3 D. A cornea of 7.29 mm on the normal length also gives
+  −3 D.
+- **Accommodation.** The lens has one state a: the curvatures 1/r of both surfaces, the thickness
+  and the chamber depth change linearly from the relaxed (a = 0) to the accommodated (a = 1) eye
+  of the table, and continue the same way beyond a = 1. The accommodation in dioptres is
+  K − L(a), where L(a) is the vergence focused on the retina in state a. The state for a wanted
+  accommodation is found by bisection.
+- **Automatic accommodation.** The eye takes the accommodation K − L that images the object
+  (vergence L at the cornea) on the retina, limited to the range from 0 to the largest
+  accommodation of its age. Beyond either limit the image is out of focus. The student can hold
+  the lens at a chosen accommodation instead, within the same range.
+- **Age.** Largest accommodation A = 18.5 − 0.30 × age (dioptres), Hofstetter's average of
+  Donders' and Duane's measurements, not below zero. Near point at 1/(A − K) in front of the
+  cornea. Age changes nothing else: the cornea and the axial length are separate controls.
+- **Focus position.** The focus of the object's light lies where the ray from the axial object
+  point crosses the axis; its distance from the retina is reported, positive behind the retina.
+- **Blur.** The aperture stop is the iris at the front of the lens, with the diameter the student
+  sets (2–8 mm). The ray from the axial object point through the edge of the pupil reaches the
+  retina at the height y; the blur disc has the diameter 2|y|. It is proportional to the pupil and
+  to the defocus and zero in focus. The chart is drawn at its retinal size, convolved with a
+  uniform disc of that diameter (as for the screen of the optical bench, §3).
+- **Image size.** The chief ray (through the centre of the pupil) of the top of a letter gives its
+  height on the retina. For a distant object subtending α it is −α/F: 24 µm for a 5′ letter. The
+  image on the retina is inverted; the panel shows it as it is seen.
+- **Brightness.** The illuminance of the retinal image is proportional to the area of the pupil.
+- **Sharpness grade.** The blur-disc diameter over the stroke width of the letters on the retina
+  (a letter is five strokes high): up to ¼ *sharp*, up to 1 *slightly blurred*, up to 3 *blurred*,
+  above that *unreadable*. This is a geometric comparison, not a prediction of visual acuity.
+
+**Assumptions and range of validity.** Paraxial optics with spherical, centred surfaces and
+homogeneous media, at one wavelength. The model describes the on-axis image. The blur shown is
+reliable from about 0.25 D of defocus upward; closer to focus the real eye is limited by
+aberrations and diffraction, which are not modelled, so "sharp" here means "in geometric focus".
+The lens beyond a = 1 is an extrapolation of the schematic eye, not a measured young lens; the
+accommodation in dioptres, which is what the experiments measure, is exact by construction. The
+age relation is a population average with a spread of several dioptres between people, and it
+reaches zero at 62 years, although real eyes keep about 1 D of apparent accommodation from their
+depth of focus.
+
+**Not modelled:** astigmatism, spherical and chromatic aberration, diffraction at the pupil, the
+Stiles–Crawford effect, the change of the pupil with accommodation and age, and everything the
+retina and the brain do with the image. The ciliary muscle and the zonule in the drawing are
+anatomy; they carry no calculation.
+
+## 17. Spectacles — `spectacles.ts`
+
+- The glasses are a thin lens of power Fs in air, at the vertex distance d in front of the cornea
+  (12 mm unless changed; 0 is a contact lens).
+- Light of vergence L at the lens leaves it with L′ = L + Fs and reaches the cornea with
+  L′/(1 − dL′). The eye then accommodates to that vergence as in §16.
+- The lens that corrects K images a distant object at the eye's far point: Fs = K/(1 + dK). For
+  K = −3 D at 12 mm, Fs = −3.11 D; for +3 D, +2.90 D; for −6 D, −6.47 D. Conversely an eye for
+  which Fs makes a distant chart sharp has K = Fs/(1 − dFs).
+- Reading glasses are a positive lens: an object 40 cm in front of +1.50 D reaches the cornea
+  with −0.99 D, so a normal eye needs 0.99 D of accommodation instead of 2.43 D.
+- The lens is part of the same ray-transfer matrix as the eye, so the change of the retinal image
+  size (spectacle magnification) follows from the trace: about −4% for the −3 D correction.
+- While the glasses are on, the laboratory also solves the bare eye for the same object and shows
+  both.
+- Assumptions: a thin lens, on the axis of the eye, in paraxial light. Lens thickness and shape,
+  prismatic effects off the axis and cylinder (astigmatic) lenses are not modelled.
+
+## 18. Lab notebook — `src/education/`
 
 - **Reading uncertainty.** Every measured quantity has an uncertainty Δx, prefilled with the
   resolution of the instrument (0.1 cm for a rail distance, 0.5° for the protractor, and so on) and
@@ -335,13 +422,13 @@ the screen. Moving M2 by d from the equal-arm position changes the optical path 
   standard error.
 - Agreement with the accepted value is stated in units of the uncertainty.
 
-## 17. Rendering
+## 19. Rendering
 
 `src/render/screenRenderer.ts` converts the solver's result to pixels: for each screen position it
 takes the calculated irradiance, applies the exposure gain and a display gamma of 2.2. Patterns are
 sampled three times per pixel and averaged in linear light so fine fringes do not alias.
 
-## 18. Known limitations
+## 20. Known limitations
 
 - Paraxial optics throughout: no spherical or chromatic aberration.
 - No vignetting of off-axis object points; no diffraction limit of the lens.
@@ -352,9 +439,9 @@ sampled three times per pixel and averaged in linear light so fine fringes do no
 - No lens behind a grating, no lens or aperture in front of a mirror, no white light at a pinhole.
 - Polarisers are ideal; the reflection and refraction experiments keep fixed 589 nm indices.
 
-## 19. Validation
+## 21. Validation
 
-`npm test` runs 185 tests of the physics layer, the notebook analysis and every experiment preset,
+`npm test` runs 285 tests of the physics layer, the notebook analysis and every experiment preset,
 including:
 
 | Check | Expected |
@@ -381,6 +468,11 @@ including:
 | Grating | 300 lines/mm, 632.8 nm, L = 25 cm: first order at 48.34 mm; efficiencies sum to a/d |
 | Airy pattern | J₁ against tabulated values; first dark ring at 1.22 λL/D; first bright ring 1.75 % |
 | Dispersion | n_d and Abbe number of each glass equal the catalogue values |
+| Schematic eye | 42.74 D + 21.75 D → 60.48 D, focus at 23.90 mm; 8.6 D accommodated; matrix result equals the vergence equation surface by surface |
+| Accommodation and age | 4.0 D in use at 25 cm; near point 8, 20, 50 cm at 20, 45, 55 years; the relaxed eye does not change with age |
+| Refractive error | ±3 D at 25.04 and 22.85 mm axial length; focus 1.14 mm in front of, 1.05 mm behind the retina |
+| Blur on the retina | 295 µm at 4 D of defocus with a 4 mm pupil; proportional to the pupil; zero in focus |
+| Spectacles | −3.11, +2.90 and −6.47 D correct −3, +3 and −6 D at 12 mm; +1.50 D at 40 cm leaves 0.99 D to accommodate |
 | Prism | δ_min = 38.50° for a 60° BK7 prism at 632.8 nm; total internal reflection at 20° incidence |
 | Uncertainty | Δf = 0.046 cm for do = 30.0 ± 0.1 cm, di = 15.0 ± 0.1 cm (analytic value) |
 | Line fit | slope, intercept and standard errors of a hand-computed example |

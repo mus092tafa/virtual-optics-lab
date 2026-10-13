@@ -3,17 +3,18 @@
  * Holds only the physical configuration and view settings; everything that is
  * observed is derived from it by the physics layer.
  */
-import { HENE_LINES, LENS_FOCAL_LENGTHS, MIN_COMPONENT_GAP, POSITION_SNAP, RAIL_LENGTH } from '../physics/constants'
+import { EYE, EYE_RANGES, HENE_LINES, LENS_FOCAL_LENGTHS, MIN_COMPONENT_GAP, POSITION_SNAP, RAIL_LENGTH } from '../physics/constants'
+import { NORMAL_AXIAL_LENGTH, axialLengthFor, maxAccommodation } from '../physics/eye'
 import { degToRad } from '../physics/units'
 import type { SurfaceSetup } from '../physics/surface'
 import type { BenchComponent, ComponentKind, DiffractionModel } from '../physics/types'
 import { cm, mm, um } from '../physics/units'
-import { DEFAULT_EXPERIMENT, DEFAULT_PRISM, benchPreset, createComponent, surfacePreset } from './presets'
-import type { BenchView, ExperimentId, PrismSetting } from './presets'
+import { DEFAULT_EXPERIMENT, DEFAULT_EYE, DEFAULT_PRISM, benchPreset, createComponent, eyeCondition, eyePreset, surfacePreset } from './presets'
+import type { BenchView, ExperimentId, EyeCondition, EyeSetting, PrismSetting } from './presets'
 import { createStore, useStore } from './store'
 
 export type LabMode = 'experiment' | 'learning' | 'demonstration'
-export type LabSection = 'bench' | 'surface' | 'interferometer'
+export type LabSection = 'bench' | 'surface' | 'interferometer' | 'eye'
 
 export interface SurfaceState extends SurfaceSetup {
   showNormal: boolean
@@ -99,6 +100,7 @@ export interface LabState {
   surface: SurfaceState
   prism: PrismSetting
   interferometer: InterferometerState
+  eye: EyeSetting
   screenFov: number
   exposure: number
   showProfile: boolean
@@ -132,6 +134,9 @@ const SECTION_OF: Record<ExperimentId, LabSection> = {
   brewster: 'surface',
   prism: 'surface',
   'concave-mirror': 'bench',
+  'eye-accommodation': 'eye',
+  'eye-glasses': 'eye',
+  'eye-ageing': 'eye',
 }
 
 /** Experiments for which demonstration mode starts with the ray diagram on. */
@@ -141,6 +146,7 @@ const DEFAULT_OF_SECTION: Record<LabSection, ExperimentId> = {
   surface: 'reflection',
   bench: 'convex-lens',
   interferometer: 'michelson',
+  eye: 'eye-accommodation',
 }
 
 const DEFAULT_SURFACE: SurfaceState = {
@@ -167,6 +173,7 @@ function initialState(): LabState {
     surface: DEFAULT_SURFACE,
     prism: DEFAULT_PRISM,
     interferometer: DEFAULT_INTERFEROMETER,
+    eye: DEFAULT_EYE,
     screenFov: preset.screenFov,
     exposure: 1,
     showProfile: true,
@@ -203,6 +210,7 @@ export function mergeConfiguration(base: LabState, data: unknown): LabState {
     surface: { ...base.surface, ...(saved.surface ?? {}) },
     prism: { ...base.prism, ...(saved.prism ?? {}) },
     interferometer: { ...base.interferometer, ...(saved.interferometer ?? {}) },
+    eye: { ...base.eye, ...(saved.eye ?? {}) },
     view: saved.view && saved.view.x1 > saved.view.x0 ? saved.view : base.view,
     notebook: normalizeNotebook(saved.notebook),
     examLock: null,
@@ -308,6 +316,7 @@ export const actions = {
       if (section === 'interferometer') {
         return { ...common, interferometer: DEFAULT_INTERFEROMETER, screenFov: mm(40), exposure: 1 }
       }
+      if (section === 'eye') return { ...common, eye: eyePreset(id)! }
       if (id === 'prism') return { ...common, prism: DEFAULT_PRISM }
       if (section === 'surface') {
         return { ...common, surface: { ...state.surface, ...surfacePreset(id)!, protractorAngle: Math.PI / 2 } }
@@ -439,6 +448,42 @@ export const actions = {
     actions.updateInterferometer({ lineId: line.id, concealed: true, counterReference: null })
     update({ revealed: false })
   },
+  updateEye(patch: Partial<EyeSetting>) {
+    update((state) => {
+      const next = { ...state.eye, ...patch }
+      const within = (value: number, range: { min: number; max: number }) => Math.min(range.max, Math.max(range.min, value))
+      next.axialLength = within(next.axialLength, EYE_RANGES.axialLength)
+      next.cornealRadius = within(next.cornealRadius, EYE_RANGES.cornealRadius)
+      next.age = Math.round(within(next.age, EYE_RANGES.age))
+      next.pupilDiameter = within(next.pupilDiameter, EYE_RANGES.pupilDiameter)
+      if (next.objectDistance !== null) next.objectDistance = within(next.objectDistance, EYE_RANGES.objectDistance)
+      next.vertexDistance = within(next.vertexDistance, EYE_RANGES.vertexDistance)
+      const { step } = EYE_RANGES.glassesPower
+      next.glassesPower = Math.round(within(next.glassesPower, EYE_RANGES.glassesPower) / step) * step
+      // The lens cannot be held beyond what the eye can do at its age.
+      if (next.heldAccommodation !== null) next.heldAccommodation = Math.min(maxAccommodation(next.age), Math.max(0, next.heldAccommodation))
+      if (next.compareAge !== null) next.compareAge = Math.round(within(next.compareAge, EYE_RANGES.age))
+      return { eye: next }
+    })
+  },
+  setEyeCondition(condition: EyeCondition) {
+    if (labStore.get().eye.concealed) return
+    actions.updateEye(eyeCondition(condition))
+  },
+  /** Swaps the eye for one of unknown refractive error (experiment mode). */
+  useUnknownEye() {
+    if (labStore.get().examLock) return
+    // Whole and half dioptres from −5 to +4, without the normal eye.
+    const errors = [-5, -4.5, -4, -3.5, -3, -2.5, -2, -1.5, -1, 1, 1.5, 2, 2.5, 3, 3.5, 4]
+    const error = errors[Math.floor(Math.random() * errors.length)]
+    actions.updateEye({ axialLength: axialLengthFor(error), cornealRadius: EYE.cornealRadius, concealed: true, glassesOn: false, glassesPower: 0 })
+    update({ revealed: false })
+  },
+  /** Puts the known normal eye back in place of an unknown one. */
+  useKnownEye() {
+    if (labStore.get().examLock) return
+    actions.updateEye({ axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius, concealed: false })
+  },
   addNotebookRow(row: NotebookRow) {
     update((state) => ({
       notebook: { ...state.notebook, [state.experiment]: [...(state.notebook[state.experiment] ?? []), row] },
@@ -475,6 +520,7 @@ export const actions = {
       ...loaded,
       components: conceal ? loaded.components.map((c) => (c.kind === 'lens' ? { ...c, concealed: true } : c)) : loaded.components,
       interferometer: conceal ? { ...loaded.interferometer, concealed: true } : loaded.interferometer,
+      eye: conceal ? { ...loaded.eye, concealed: true } : loaded.eye,
       mode: options.lock ? 'experiment' : (options.mode ?? loaded.mode),
       revealed: false,
       // Aids that draw the calculated result are off on an exam bench.

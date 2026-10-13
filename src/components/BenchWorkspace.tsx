@@ -5,7 +5,9 @@ import { BEAM_ZOOM_FACTOR } from './bench/glyphMetrics'
 import { ComponentPalette } from './ComponentPalette'
 import { ControlPanel } from './ControlPanel'
 import { ExperimentPanel } from './ExperimentPanel'
+import { usePanelLayout } from './hooks'
 import { OpticalBench } from './OpticalBench'
+import { PanelResizer } from './PanelResizer'
 import { PhysicsPanel } from './PhysicsPanel'
 import { ScreenOutput } from './ScreenOutput'
 import { buildReport } from './report'
@@ -21,13 +23,14 @@ export function BenchWorkspace() {
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
   const examLock = useLab((s) => s.examLock)
+  const layout = usePanelLayout('bench')
   const showTheory = theoryVisible({ mode, revealed })
 
   // The single place where the physical system is solved. Everything displayed
   // on the bench, the screen and the panels derives from this result.
   const solution = useMemo(() => solveBench(components, { diffractionModel }), [components, diffractionModel])
   const report = useMemo(() => buildReport(solution, components), [solution, components])
-  const context = useMemo(() => ({ components, bench: solution, surface: null, michelson: null, prism: null }), [components, solution])
+  const context = useMemo(() => ({ components, bench: solution, surface: null, michelson: null, prism: null, eye: null }), [components, solution])
 
   const zoom = (factor: number) => {
     const centre = (view.x0 + view.x1) / 2
@@ -36,8 +39,9 @@ export function BenchWorkspace() {
   }
 
   return (
-    <main className="workspace bench-workspace">
+    <main className="workspace bench-workspace" style={layout.style}>
       <ComponentPalette />
+      <PanelResizer label="the components" axis="x" target="previous" column={2} row={1} {...layout.handle('palette')} />
 
       <section className="panel bench-panel" aria-label="Optical bench">
         <header className="panel-header">
@@ -81,12 +85,20 @@ export function BenchWorkspace() {
         <OpticalBench solution={solution} />
       </section>
 
+      <PanelResizer label="the screen" axis="x" target="next" column={3} row="1 / -1" {...layout.handle('side')} />
       <ScreenOutput light={solution.screenLight} focus={solution.imaging?.screen} />
 
+      <PanelResizer label="the lower panels" axis="y" target="next" column="1 / 3" row={2} {...layout.handle('bottom')} />
       <div className={`bottom-row${examLock && !examLock.notebook ? ' pair' : ''}`}>
         <ControlPanel />
+        <PanelResizer label="the controls" axis="x" target="previous" column={2} row={1} {...layout.handle('controls')} />
         <PhysicsPanel sections={report} notices={solution.notices} />
-        {(!examLock || examLock.notebook) && <ExperimentPanel context={context} setup={report} />}
+        {(!examLock || examLock.notebook) && (
+          <>
+            <PanelResizer label="the physics panel" axis="x" target="previous" column={3} row={1} {...layout.handle('physics')} />
+            <ExperimentPanel context={context} setup={report} />
+          </>
+        )}
       </div>
     </main>
   )

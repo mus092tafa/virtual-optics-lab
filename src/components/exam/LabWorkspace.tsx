@@ -1,5 +1,6 @@
 import { useLab } from '../../state/labState'
 import { BenchWorkspace } from '../BenchWorkspace'
+import { EyeWorkspace } from '../eye/EyeWorkspace'
 import { InterferometerWorkspace } from '../interferometer/InterferometerWorkspace'
 import { PrismWorkspace } from '../surface/PrismWorkspace'
 import { SurfaceWorkspace } from '../surface/SurfaceWorkspace'
@@ -10,5 +11,6 @@ export function LabWorkspace() {
   const experiment = useLab((s) => s.experiment)
   if (section === 'bench') return <BenchWorkspace />
   if (section === 'interferometer') return <InterferometerWorkspace />
+  if (section === 'eye') return <EyeWorkspace />
   return experiment === 'prism' ? <PrismWorkspace /> : <SurfaceWorkspace />
 }

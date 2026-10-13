@@ -20,6 +20,13 @@ export const translation = (distance: number): RayMatrix => [1, distance, 0, 1]
 
 export const thinLensMatrix = (focalLength: number): RayMatrix => [1, 0, -1 / focalLength, 1]
 
+/**
+ * Refraction at a spherical surface of radius r (positive when its centre lies
+ * behind it) from index n into index n′. The surface has the power (n′ − n)/r:
+ * u′ = (n u − P y) / n′.
+ */
+export const surfaceMatrix = (n: number, nPrime: number, radius: number): RayMatrix => [1, 0, -(nPrime - n) / (nPrime * radius), n / nPrime]
+
 /** Matrix of `first` followed by `second`. */
 export function compose(second: RayMatrix, first: RayMatrix): RayMatrix {
   const [a2, b2, c2, d2] = second

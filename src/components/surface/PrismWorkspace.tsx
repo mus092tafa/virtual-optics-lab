@@ -7,6 +7,8 @@ import { degToRad, formatAngle, formatLength, formatNumber, nm, radToDeg } from 
 import { PRISM_APEX_RANGE, PRISM_INCIDENCE_RANGE, actions, theoryVisible, useLab } from '../../state/labState'
 import type { PrismSetting } from '../../state/presets'
 import { ExperimentPanel } from '../ExperimentPanel'
+import { usePanelLayout } from '../hooks'
+import { PanelResizer } from '../PanelResizer'
 import type { ReportSection } from '../report'
 import { PrismScene } from './PrismScene'
 import type { PrismRay } from './PrismScene'
@@ -31,6 +33,7 @@ export function PrismWorkspace() {
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
   const examLock = useLab((s) => s.examLock)
+  const layout = usePanelLayout('prism')
   const showTheory = theoryVisible({ mode, revealed })
   const glass = opticalGlass(prism.glassId)
   const white = prism.light === 'white'
@@ -51,6 +54,7 @@ export function PrismWorkspace() {
       surface: null,
       michelson: null,
       prism: { apexAngle: prism.apexAngle, wavelength: lambda, index: refractiveIndex(opticalGlass(prism.glassId), lambda) },
+      eye: null,
     }
   }, [prism.apexAngle, prism.glassId, prism.light])
 
@@ -81,7 +85,7 @@ export function PrismWorkspace() {
   const setup: ReportSection[] = [{ title: 'Prism', rows: rows.map((row) => ({ label: row.label, value: row.value, theory: row.theory })) }]
 
   return (
-    <main className="workspace surface-workspace">
+    <main className="workspace surface-workspace" style={layout.style}>
       <section className="panel surface-panel" aria-label="Prism">
         <header className="panel-header">
           <h2>Prism</h2>
@@ -91,6 +95,7 @@ export function PrismWorkspace() {
         <PrismScene rays={rays} showTheory={showTheory} />
       </section>
 
+      <PanelResizer label="the controls" axis="x" target="next" column={2} row={1} {...layout.handle('side')} />
       <div className="surface-side">
         <section className="panel controls" aria-label="Controls">
           <header className="panel-header">
@@ -178,9 +183,12 @@ export function PrismWorkspace() {
       </div>
 
       {(!examLock || examLock.notebook) && (
-        <div className="bottom-row single">
-          <ExperimentPanel context={context} setup={setup} />
-        </div>
+        <>
+          <PanelResizer label="the guide and notebook" axis="y" target="next" column="1 / -1" row={2} {...layout.handle('bottom')} />
+          <div className="bottom-row single">
+            <ExperimentPanel context={context} setup={setup} />
+          </div>
+        </>
       )}
     </main>
   )

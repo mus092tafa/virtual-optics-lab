@@ -5,6 +5,8 @@ import type { RayPolarization } from '../../physics/surface'
 import { degToRad, formatAngle, formatNumber, radToDeg } from '../../physics/units'
 import { actions, theoryVisible, useLab } from '../../state/labState'
 import { ExperimentPanel } from '../ExperimentPanel'
+import { usePanelLayout } from '../hooks'
+import { PanelResizer } from '../PanelResizer'
 import { SurfaceScene } from './SurfaceScene'
 import { MAX_TILT } from './limits'
 
@@ -18,10 +20,11 @@ export function SurfaceWorkspace() {
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
   const examLock = useLab((s) => s.examLock)
+  const layout = usePanelLayout('surface')
   const showTheory = theoryVisible({ mode, revealed })
   const solution = useMemo(() => solveSurface(surface), [surface])
   const polarization = surface.polarization ?? 'unpolarized'
-  const context = useMemo(() => ({ components: [], bench: null, surface: solution, michelson: null, prism: null }), [solution])
+  const context = useMemo(() => ({ components: [], bench: null, surface: solution, michelson: null, prism: null, eye: null }), [solution])
 
   const normalAngle = surface.surfaceTilt + Math.PI / 2
   // Signed angle of the source from the normal: |δ| < 90° means the front side.
@@ -81,7 +84,7 @@ export function SurfaceWorkspace() {
   }
 
   return (
-    <main className="workspace surface-workspace">
+    <main className="workspace surface-workspace" style={layout.style}>
       <section className="panel surface-panel" aria-label="Reflection and refraction">
         <header className="panel-header">
           <h2>{surface.kind === 'mirror' ? 'Plane mirror' : 'Interface between two media'}</h2>
@@ -91,6 +94,7 @@ export function SurfaceWorkspace() {
         <SurfaceScene surface={surface} solution={solution} showTheory={showTheory} />
       </section>
 
+      <PanelResizer label="the controls and measurements" axis="x" target="next" column={2} row={1} {...layout.handle('side')} />
       <div className="surface-side">
         <section className="panel controls" aria-label="Controls">
           <header className="panel-header">
@@ -202,6 +206,7 @@ export function SurfaceWorkspace() {
           </div>
         </section>
 
+        <PanelResizer label="the controls" axis="y" target="previous" column={1} row={2} {...layout.handle('upper')} />
         <section className="panel physics" aria-label="Measurements">
           <header className="panel-header">
             <h2>Physics</h2>
@@ -229,9 +234,12 @@ export function SurfaceWorkspace() {
       </div>
 
       {(!examLock || examLock.notebook) && (
-        <div className="bottom-row single">
-          <ExperimentPanel context={context} />
-        </div>
+        <>
+          <PanelResizer label="the guide and notebook" axis="y" target="next" column="1 / -1" row={2} {...layout.handle('bottom')} />
+          <div className="bottom-row single">
+            <ExperimentPanel context={context} />
+          </div>
+        </>
       )}
     </main>
   )

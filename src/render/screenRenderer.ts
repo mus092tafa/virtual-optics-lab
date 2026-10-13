@@ -287,7 +287,7 @@ function renderImage(
  * Convolution with a uniform disc (the geometric blur of a circular lens
  * aperture). Energy conserving. Runs row-wise on prefix sums: O(n² · r).
  */
-function discBlur(field: Float32Array, n: number, radius: number): Float32Array {
+export function discBlur(field: Float32Array, n: number, radius: number): Float32Array {
   const prefix = new Float32Array(n * (n + 1))
   for (let j = 0; j < n; j++) {
     let sum = 0

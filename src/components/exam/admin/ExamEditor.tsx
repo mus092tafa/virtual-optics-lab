@@ -16,7 +16,7 @@ interface Props {
 }
 
 const SAVE_DELAY_MS = 400
-const SECTION_NAMES: Record<string, string> = { bench: 'Optical bench', surface: 'Reflection & refraction', interferometer: 'Interferometer' }
+const SECTION_NAMES: Record<string, string> = { bench: 'Optical bench', surface: 'Reflection & refraction', interferometer: 'Interferometer', eye: 'Human eye' }
 
 /** What the bench of a question holds, in a few words. */
 function describeSetup(setup: BenchQuestion['setup']): string {
@@ -308,7 +308,7 @@ function BenchEditor({ question, onChange, onSetUp }: { question: BenchQuestion;
       </div>
       <label className="check">
         <input type="checkbox" checked={question.concealUnknowns} onChange={(event) => onChange({ concealUnknowns: event.target.checked })} />
-        Hide lens focal lengths and the interferometer’s laser line from the student
+        Hide the unknowns from the student: lens focal lengths, the interferometer’s laser line, and the eye’s length, cornea and age
       </label>
       <label className="check">
         <input type="checkbox" checked={question.allowNotebook} onChange={(event) => onChange({ allowNotebook: event.target.checked })} />

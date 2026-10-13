@@ -7,6 +7,7 @@
 import { describe, expect, it } from 'vitest'
 import { HENE_WAVELENGTH, laserLine } from '../../physics/constants'
 import { opticalGlass, refractiveIndex } from '../../physics/dispersion'
+import { axialLengthFor, solveEye } from '../../physics/eye'
 import { solveMichelson } from '../../physics/michelson'
 import { solveBench } from '../../physics/optics'
 import type { BenchSolution } from '../../physics/optics'
@@ -14,10 +15,11 @@ import { minimumDeviation, solvePrism } from '../../physics/prism'
 import { solveSurface } from '../../physics/surface'
 import type { BenchComponent } from '../../physics/types'
 import { cm, degToRad, fromMeters, mm, radToDeg, um } from '../../physics/units'
-import { DEFAULT_PRISM, benchPreset, surfacePreset } from '../../state/presets'
+import { DEFAULT_PRISM, benchPreset, eyePreset, surfacePreset, toEyeSetup } from '../../state/presets'
 import type { ExperimentId } from '../../state/presets'
 import { SWEEP_LABELS } from '../../state/sweeps'
 import { EXPERIMENTS, experiment } from '../experiments'
+import { TOPICS } from '../topics'
 import type { AnalysisContext } from '../experiments'
 import { analyzeMeasurement, defaultUncertainties, fitRows } from '../notebook'
 
@@ -28,7 +30,7 @@ function bench(id: ExperimentId, change?: (components: BenchComponent[]) => Benc
   const preset = benchPreset(id)!
   const components = change ? change(preset.components) : preset.components
   const solution = solveBench(components, options)
-  const context: AnalysisContext = { components, bench: solution, surface: null, michelson: null, prism: null }
+  const context: AnalysisContext = { components, bench: solution, surface: null, michelson: null, prism: null, eye: null }
   return { components, solution, context }
 }
 const moveScreen = (x: number) => (components: BenchComponent[]) => components.map((c) => (c.kind === 'screen' ? { ...c, x } : c))
@@ -44,8 +46,8 @@ function analyze(id: ExperimentId, values: Record<string, number>, context: Anal
 describe('experiment catalogue', () => {
   const ids = EXPERIMENTS.map((entry) => entry.id)
 
-  it('numbers the experiments 1…16 without gaps or duplicates', () => {
-    expect(EXPERIMENTS.map((entry) => entry.number)).toEqual(Array.from({ length: 16 }, (_, i) => i + 1))
+  it('numbers the experiments 1…19 without gaps or duplicates', () => {
+    expect(EXPERIMENTS.map((entry) => entry.number)).toEqual(Array.from({ length: 19 }, (_, i) => i + 1))
     expect(new Set(ids).size).toBe(ids.length)
   })
 
@@ -65,8 +67,9 @@ describe('experiment catalogue', () => {
     for (const id of ids) {
       const hasBench = benchPreset(id) !== null
       const hasSurface = surfacePreset(id) !== null
+      const hasEye = eyePreset(id) !== null
       const standalone = id === 'michelson' || id === 'prism'
-      expect([hasBench, hasSurface, standalone].filter(Boolean)).toHaveLength(1)
+      expect([hasBench, hasSurface, hasEye, standalone].filter(Boolean)).toHaveLength(1)
       expect(hasSurface).toBe(SURFACE_EXPERIMENTS.includes(id))
     }
   })
@@ -90,7 +93,7 @@ describe('experiment 1: law of reflection', () => {
     const surface = solveSurface(surfacePreset('reflection')!)
     expect(radToDeg(surface.incidentAngle)).toBeCloseTo(35, 10)
     expect(radToDeg(surface.reflectedAngle!)).toBeCloseTo(35, 10)
-    const results = analyze('reflection', { thetaI: 35, thetaR: 35 }, { components: [], bench: null, surface, michelson: null, prism: null })
+    const results = analyze('reflection', { thetaI: 35, thetaR: 35 }, { components: [], bench: null, surface, michelson: null, prism: null, eye: null })
     expect(results[2].value).toBe(0)
     // Δ(θr − θi) = √2 × 0.5°
     expect(results[2].uncertainty!).toBeCloseTo(Math.SQRT2 * 0.5, 10)
@@ -103,7 +106,7 @@ describe("experiment 2: Snell's law", () => {
     const expected = radToDeg(Math.asin((1.000293 * Math.sin(degToRad(40))) / 1.333))
     expect(expected).toBeCloseTo(28.84, 2)
     expect(radToDeg(surface.refractedAngle!)).toBeCloseTo(expected, 10)
-    const context: AnalysisContext = { components: [], bench: null, surface, michelson: null, prism: null }
+    const context: AnalysisContext = { components: [], bench: null, surface, michelson: null, prism: null, eye: null }
     const results = analyze('refraction', { theta1: 40, theta2: expected }, context)
     expect(results[0].value).toBeCloseTo(1.333, 10)
     expect(results[0].theory).toBe(1.333)
@@ -205,7 +208,7 @@ describe('experiment 9: Michelson interferometer', () => {
     const after = solveMichelson({ ...setup, mirrorDisplacement: mm(4) + um(10) })
     const passed = after.centreOrder - before.centreOrder
     expect(passed).toBeCloseTo((2 * 10e-6) / 632.8e-9, 6)
-    const context: AnalysisContext = { components: [], bench: null, surface: null, michelson: after, prism: null }
+    const context: AnalysisContext = { components: [], bench: null, surface: null, michelson: after, prism: null, eye: null }
     expect(analyze('michelson', { dd: 10, N: passed }, context)[0].value).toBeCloseTo(632.8, 6)
   })
 })
@@ -274,7 +277,7 @@ describe("experiment 13: Malus's law", () => {
       const turned = solveBench(components.map((c) => (c.id === analyser.id ? { ...c, angle: degToRad(theta) } : c)), options)
       expect(turned.polarization!.transmission).toBeCloseTo(0.5 * Math.cos(degToRad(theta)) ** 2, 12)
     }
-    const context: AnalysisContext = { components, bench: solution, surface: null, michelson: null, prism: null }
+    const context: AnalysisContext = { components, bench: solution, surface: null, michelson: null, prism: null, eye: null }
     const results = analyze('malus', { theta: 30, I: 37.5, I0: 50 }, context)
     expect(results[0].value).toBeCloseTo(0.75, 12)
     expect(results[0].theory).toBeCloseTo(0.75, 12)
@@ -290,7 +293,7 @@ describe("experiment 14: Brewster's angle", () => {
     expect(surface.reflectance).toBeCloseTo(0, 12)
     expect(solveSurface({ ...preset, sourceAngle: degToRad(90 + thetaB - 5) }).reflectance).toBeGreaterThan(1e-3)
     expect(solveSurface({ ...preset, sourceAngle: degToRad(90 + thetaB + 5) }).reflectance).toBeGreaterThan(1e-3)
-    const context: AnalysisContext = { components: [], bench: null, surface, michelson: null, prism: null }
+    const context: AnalysisContext = { components: [], bench: null, surface, michelson: null, prism: null, eye: null }
     const results = analyze('brewster', { thetaB }, context)
     expect(results[0].value).toBeCloseTo(1.5168, 10)
     expect(results[1].theory).toBeCloseTo(thetaB, 10)
@@ -313,7 +316,7 @@ describe('experiment 15: prism', () => {
       if (deviation !== null) smallest = Math.min(smallest, radToDeg(deviation))
     }
     expect(smallest).toBeCloseTo(expected, 3)
-    const context: AnalysisContext = { components: [], bench: null, surface: null, michelson: null, prism: { apexAngle: DEFAULT_PRISM.apexAngle, wavelength, index } }
+    const context: AnalysisContext = { components: [], bench: null, surface: null, michelson: null, prism: { apexAngle: DEFAULT_PRISM.apexAngle, wavelength, index }, eye: null }
     const results = analyze('prism', { dmin: smallest }, context)
     expect(results[0].value).toBeCloseTo(index, 5)
     expect(results[0].theory).toBeCloseTo(1.51509, 5)
@@ -335,6 +338,119 @@ describe('experiment 16: concave mirror', () => {
     const results = analyze('concave-mirror', { do: 30, di: 60 }, context)
     expect(results.map((r) => r.value)).toEqual([expect.closeTo(20, 10), expect.closeTo(40, 10), expect.closeTo(-2, 10)])
     expect(results.map((r) => r.theory)).toEqual([expect.closeTo(20, 10), expect.closeTo(40, 10), expect.closeTo(-2, 10)])
+  })
+})
+
+describe('the eye', () => {
+  /** The eye of an experiment, optionally changed, with the context the notebook is given. */
+  function eye(id: ExperimentId, change: Partial<NonNullable<ReturnType<typeof eyePreset>>> = {}) {
+    const setting = { ...eyePreset(id)!, ...change }
+    const solution = solveEye(toEyeSetup(setting))
+    const context: AnalysisContext = { components: [], bench: null, surface: null, michelson: null, prism: null, eye: solution }
+    return { setting, solution, context }
+  }
+
+  it('has its own topic with three experiments', () => {
+    expect(TOPICS.find((topic) => topic.id === 'eye')!.experiments).toEqual(['eye-accommodation', 'eye-glasses', 'eye-ageing'])
+  })
+
+  it('starts each experiment with an image the student can work from', () => {
+    // Accommodation: the object is within reach of the young eye.
+    expect(eye('eye-accommodation').solution.view.sharpness).toBe('sharp')
+    // Glasses: the myopic eye sees the distant chart blurred, with its focus in front of the retina.
+    const myope = eye('eye-glasses').solution
+    expect(myope.refractiveError).toBeCloseTo(-3, 9)
+    expect(myope.view.focusOffset!).toBeLessThan(0)
+    expect(myope.view.sharpness).not.toBe('sharp')
+    // Ageing: reading at 40 cm is in reach at 20 and out of reach at 60.
+    expect(eye('eye-ageing').solution.view.sharpness).toBe('sharp')
+    expect(eye('eye-ageing', { age: 60 }).solution.view.sharpness).not.toBe('sharp')
+  })
+
+  it('returns the amplitude of accommodation from the far and the near point', () => {
+    const { solution, context } = eye('eye-accommodation', { age: 45 })
+    expect(fromMeters(solution.view.nearPoint!, 'cm')).toBeCloseTo(20, 6)
+    const [amplitude, error] = analyze('eye-accommodation', { near: 20, far: 0 }, context)
+    expect(amplitude.value).toBeCloseTo(5, 9)
+    expect(amplitude.theory).toBeCloseTo(5, 9)
+    expect(error.value).toBeCloseTo(0, 9)
+    expect(error.theory).toBeCloseTo(0, 9)
+  })
+
+  it('returns the amplitude of a myopic eye, whose far point is near', () => {
+    const { solution, context } = eye('eye-accommodation', { age: 45, axialLength: axialLengthFor(-3) })
+    const near = fromMeters(solution.view.nearPoint!, 'cm')
+    const far = fromMeters(solution.view.farPoint!, 'cm')
+    expect(near).toBeCloseTo(12.5, 6)
+    const [amplitude, error] = analyze('eye-accommodation', { near, far }, context)
+    expect(amplitude.value).toBeCloseTo(amplitude.theory!, 9)
+    expect(error.value).toBeCloseTo(-3, 9)
+  })
+
+  it('returns the refractive error from the glasses that make a distant chart sharp', () => {
+    const { solution, context } = eye('eye-glasses')
+    // The exact correction returns K; the nearest stock lens returns the K it would correct.
+    const [exact] = analyze('eye-glasses', { power: solution.correctingPower }, context)
+    expect(exact.value).toBeCloseTo(-3, 9)
+    expect(exact.theory).toBeCloseTo(-3, 9)
+    expect(analyze('eye-glasses', { power: -3 }, context)[0].value).toBeCloseTo(-2.9, 2)
+  })
+
+  it('allows for the distance of the chart when it is not far away', () => {
+    // The glasses that make a chart at 50 cm sharp for a relaxed −3 D eye: L + Fs carried to the cornea must be K.
+    const { solution, context } = eye('eye-glasses', { objectDistance: cm(50), heldAccommodation: 0, glassesOn: true, glassesPower: -1 })
+    expect(solution.view.vergence).toBeCloseTo(analyze('eye-glasses', { power: -1 }, context)[0].value, 9)
+  })
+
+  it('finds Hofstetter’s line from near points measured at several ages', () => {
+    const definition = experiment('eye-ageing')
+    const rows = [20, 30, 40, 50].map((age, index) => {
+      const { solution, context } = eye('eye-ageing', { age })
+      const values = { age, near: fromMeters(solution.view.nearPoint!, 'cm') }
+      const results = analyzeMeasurement(definition, values, defaultUncertainties(definition), context)
+      expect(results[0].value, `age ${age}`).toBeCloseTo(18.5 - 0.3 * age, 6)
+      expect(results[0].theory, `age ${age}`).toBeCloseTo(18.5 - 0.3 * age, 9)
+      return { id: String(index), values, uncertainties: defaultUncertainties(definition), results }
+    })
+    const fitted = fitRows(definition, rows, eye('eye-ageing').context)!
+    expect(fitted.results[0].value).toBeCloseTo(-0.3, 6)
+    expect(fitted.results[1].value).toBeCloseTo(18.5, 5)
+  })
+
+  it('shows reading glasses bringing the text back for the older eye', () => {
+    const without = eye('eye-ageing', { age: 55 }).solution
+    expect(without.view.accommodationNeeded).toBeCloseTo(2.5, 9)
+    expect(without.view.sharpness).not.toBe('sharp')
+    const withGlasses = eye('eye-ageing', { age: 55, glassesOn: true, glassesPower: 1 }).solution
+    expect(withGlasses.view.accommodationNeeded).toBeLessThan(2)
+    expect(withGlasses.view.sharpness).toBe('sharp')
+    expect(withGlasses.bare!.sharpness).toBe(without.view.sharpness)
+  })
+
+  it('compares a young and an old eye on the same object', () => {
+    const { setting } = eye('eye-ageing')
+    const at = (age: number, objectDistance: number | null) => solveEye(toEyeSetup({ ...setting, objectDistance }, age)).view
+    expect(at(20, cm(40)).sharpness).toBe('sharp')
+    expect(at(60, cm(40)).sharpness).not.toBe('sharp')
+    expect(at(60, cm(40)).blurDiameter).toBeGreaterThan(um(50))
+    expect(at(20, null).sharpness).toBe('sharp')
+    expect(at(60, null).sharpness).toBe('sharp')
+    // Nothing but the reach of the lens differs between the two.
+    expect(at(60, null).totalPower).toBe(at(20, null).totalPower)
+  })
+
+  it('stays solvable through its demonstration sweeps', async () => {
+    const { actions, labStore } = await import('../../state/labState')
+    const { applySweep } = await import('../../state/sweeps')
+    for (const id of ['eye-accommodation', 'eye-glasses', 'eye-ageing'] as const) {
+      actions.loadExperiment(id)
+      for (const t of [0, 0.5, 1]) {
+        applySweep(id, t)
+        const { view } = solveEye(toEyeSetup(labStore.get().eye))
+        expect(view.focusDistance, `${id} at t = ${t}`).not.toBeNull()
+        expect(Number.isFinite(view.blurDiameter), `${id} at t = ${t}`).toBe(true)
+      }
+    }
   })
 })
 

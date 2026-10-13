@@ -14,7 +14,8 @@ import { cm, formatLength, formatNumber, fromMeters, mm, um } from '../../physic
 import { COARSE_RANGE, FINE_RANGE, TILT_RANGE, actions, theoryVisible, useLab } from '../../state/labState'
 import { ExperimentPanel } from '../ExperimentPanel'
 import { ScreenOutput } from '../ScreenOutput'
-import { cssRgb } from '../hooks'
+import { cssRgb, usePanelLayout } from '../hooks'
+import { PanelResizer } from '../PanelResizer'
 import { MichelsonScene } from './MichelsonScene'
 
 const SCAN_DISTANCE = um(10)
@@ -26,6 +27,7 @@ export function InterferometerWorkspace() {
   const mode = useLab((s) => s.mode)
   const revealed = useLab((s) => s.revealed)
   const examLock = useLab((s) => s.examLock)
+  const layout = usePanelLayout('interferometer')
   const showTheory = theoryVisible({ mode, revealed })
   const [scanning, setScanning] = useState(false)
   const line = laserLine(setup.lineId)
@@ -50,7 +52,7 @@ export function InterferometerWorkspace() {
   )
   const rgb = useMemo(() => wavelengthToRgb(line.wavelength), [line.wavelength])
   const light = useMemo<ScreenLight>(() => ({ kind: 'field', rgb, level: 1, intensity: solution.intensity }), [rgb, solution])
-  const context = useMemo(() => ({ components: [], bench: null, surface: null, michelson: solution, prism: null }), [solution])
+  const context = useMemo(() => ({ components: [], bench: null, surface: null, michelson: solution, prism: null, eye: null }), [solution])
 
   // The fringe counter reads the number of fringes that have passed the centre since it was reset.
   const needsReference = setup.counterReference === null
@@ -109,7 +111,7 @@ export function InterferometerWorkspace() {
   ]
 
   return (
-    <main className="workspace interferometer-workspace">
+    <main className="workspace interferometer-workspace" style={layout.style}>
       <section className="panel bench-panel" aria-label="Michelson interferometer">
         <header className="panel-header">
           <h2>Michelson interferometer</h2>
@@ -124,8 +126,10 @@ export function InterferometerWorkspace() {
         />
       </section>
 
+      <PanelResizer label="the screen" axis="x" target="next" column={2} row="1 / -1" {...layout.handle('side')} />
       <ScreenOutput light={light} />
 
+      <PanelResizer label="the lower panels" axis="y" target="next" column={1} row={2} {...layout.handle('bottom')} />
       <div className={`bottom-row${examLock && !examLock.notebook ? ' pair' : ''}`}>
         <section className="panel controls" aria-label="Controls">
           <header className="panel-header">
@@ -282,6 +286,7 @@ export function InterferometerWorkspace() {
           </div>
         </section>
 
+        <PanelResizer label="the controls" axis="x" target="previous" column={2} row={1} {...layout.handle('controls')} />
         <section className="panel physics" aria-label="Physics">
           <header className="panel-header">
             <h2>Physics</h2>
@@ -311,7 +316,12 @@ export function InterferometerWorkspace() {
           </div>
         </section>
 
-        {(!examLock || examLock.notebook) && <ExperimentPanel context={context} />}
+        {(!examLock || examLock.notebook) && (
+          <>
+            <PanelResizer label="the physics panel" axis="x" target="previous" column={3} row={1} {...layout.handle('physics')} />
+            <ExperimentPanel context={context} />
+          </>
+        )}
       </div>
     </main>
   )

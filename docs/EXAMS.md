@@ -81,7 +81,11 @@ it with the saved setting.
 
 The bench of an exam question is locked to experiment mode: calculated results show as *to be
 measured*, *Reveal theory*, ray diagrams and the experiment guide are unavailable, and with *Hide
-lens focal lengths…* ticked a lens reads `f = ?`. The lab notebook, which evaluates the
+the unknowns…* ticked a lens reads `f = ?`, the interferometer's laser reads `λ = ?`, and an eye
+becomes an *unknown eye*: its length, cornea and age are not shown and cannot be changed, and it is
+drawn with the standard dimensions so that they cannot be measured off the picture. The student
+finds its far point, near point or glasses from the image. Glasses come in steps of 0.25 D, so
+accept a refractive error within about ±0.3 D. The lab notebook, which evaluates the
 experiment's formula from the readings, is available only if the teacher allows it for that
 question. The values a student can read are the ones a real bench offers: rail positions, the
 screen graticule, the ruler and the protractor.
@@ -135,8 +139,8 @@ installer build (`npm run dist:win:setup`), which registers the file types.
 - The student edition does not lock down Windows: a student can still switch to another program.
   Supervise the room as for a paper exam.
 - The bench set-up of a question travels to the student laptop in full, because the laboratory
-  needs it to calculate what the screen shows. A hidden focal length is hidden on screen, not
-  encrypted.
+  needs it to calculate what the screen shows. A hidden focal length, laser line or eye is hidden
+  on screen, not encrypted.
 - Clocks are taken from the teacher's laptop; a wrong clock on a student laptop does not matter.
 
 ## For developers

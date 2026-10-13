@@ -27,6 +27,9 @@ export const SWEEP_LABELS: Record<ExperimentId, string> = {
   brewster: 'angle of incidence',
   prism: 'angle of incidence',
   'concave-mirror': 'object position (screen follows the image)',
+  'eye-accommodation': 'object distance',
+  'eye-glasses': 'glasses power',
+  'eye-ageing': 'age',
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -109,6 +112,16 @@ export function applySweep(id: ExperimentId, t: number): void {
       if (analyser) actions.updateComponent(analyser.id, { angle: degToRad(lerp(0, 180, t)) })
       break
     }
+    case 'eye-accommodation':
+      // Equal steps of vergence, from 2 D to 16 D.
+      actions.updateEye({ objectDistance: 1 / lerp(2, 16, t) })
+      break
+    case 'eye-glasses':
+      actions.updateEye({ glassesOn: true, glassesPower: lerp(0, -5, t) })
+      break
+    case 'eye-ageing':
+      actions.updateEye({ age: lerp(20, 70, t) })
+      break
     case 'prism':
       actions.updatePrism({ incidenceAngle: degToRad(lerp(35, 80, t)) })
       break

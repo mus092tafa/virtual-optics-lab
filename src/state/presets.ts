@@ -2,7 +2,9 @@
  * Bench layouts for the predefined experiments. Positions are physical
  * (metres along the rail) and built through the unit helpers.
  */
-import { DEFAULT_LENS_APERTURE, DEFAULT_MIRROR_APERTURE, DEFAULT_PINHOLE_DIAMETER, GRATING_APERTURE } from '../physics/constants'
+import { DEFAULT_LENS_APERTURE, DEFAULT_MIRROR_APERTURE, DEFAULT_PINHOLE_DIAMETER, DEFAULT_VERTEX_DISTANCE, EYE, GRATING_APERTURE } from '../physics/constants'
+import { NORMAL_AXIAL_LENGTH, axialLengthFor } from '../physics/eye'
+import type { EyeSetup } from '../physics/eye'
 import type { BenchComponent, ComponentKind } from '../physics/types'
 import { cm, degToRad, mm, perMm } from '../physics/units'
 import type { SurfaceSetup } from '../physics/surface'
@@ -24,6 +26,9 @@ export type ExperimentId =
   | 'brewster'
   | 'prism'
   | 'concave-mirror'
+  | 'eye-accommodation'
+  | 'eye-glasses'
+  | 'eye-ageing'
 
 export interface BenchView {
   /** Visible part of the rail, metres. */
@@ -229,6 +234,108 @@ export const DEFAULT_PRISM: PrismSetting = {
   incidenceAngle: degToRad(60),
   glassId: 'bk7',
   light: 'red',
+}
+
+export type EyeChart = 'letters' | 'text' | 'face'
+
+/** The schematic eye, its object and its glasses (lengths in metres, powers in dioptres). */
+export interface EyeSetting {
+  axialLength: number
+  cornealRadius: number
+  /** Years. */
+  age: number
+  pupilDiameter: number
+  /** Object to cornea; null for a distant object. */
+  objectDistance: number | null
+  /** Height of one letter of the chart at a finite distance. */
+  letterHeight: number
+  /** Angle one letter of a distant chart subtends, radians. */
+  letterAngle: number
+  chart: EyeChart
+  /** Width of the part of the retina shown in the image panel. */
+  fieldOfView: number
+  /** Accommodation the lens is held at; null lets the eye accommodate by itself. */
+  heldAccommodation: number | null
+  glassesOn: boolean
+  glassesPower: number
+  vertexDistance: number
+  /** Age of a second, otherwise identical eye shown beside the first; null for none. */
+  compareAge: number | null
+  /** When true the length, the cornea and the age of the eye are hidden from the student ("unknown eye"). */
+  concealed: boolean
+}
+
+const ARC_MINUTE = degToRad(1 / 60)
+
+export const DEFAULT_EYE: EyeSetting = {
+  axialLength: NORMAL_AXIAL_LENGTH,
+  cornealRadius: EYE.cornealRadius,
+  age: 20,
+  pupilDiameter: mm(4),
+  objectDistance: cm(50),
+  letterHeight: mm(1.5),
+  letterAngle: 10 * ARC_MINUTE,
+  chart: 'letters',
+  fieldOfView: mm(1),
+  heldAccommodation: null,
+  glassesOn: false,
+  glassesPower: 0,
+  vertexDistance: DEFAULT_VERTEX_DISTANCE,
+  compareAge: null,
+  concealed: false,
+}
+
+export type EyeCondition = 'normal' | 'myopia' | 'hyperopia' | 'presbyopia'
+
+/** Refractive error of the myopia and hyperopia presets, dioptres. */
+export const CONDITION_ERROR = 3
+/** Age of the presbyopia preset: the near point of a normal eye is then at 50 cm. */
+export const PRESBYOPIA_AGE = 55
+
+/** What a condition sets on the eye; the rest of the eye is left as it is. */
+export function eyeCondition(condition: EyeCondition): Partial<EyeSetting> {
+  const normal = { axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius }
+  switch (condition) {
+    case 'normal':
+      return normal
+    case 'myopia':
+      return { ...normal, axialLength: axialLengthFor(-CONDITION_ERROR) }
+    case 'hyperopia':
+      return { ...normal, axialLength: axialLengthFor(CONDITION_ERROR) }
+    case 'presbyopia':
+      return { ...normal, age: PRESBYOPIA_AGE }
+  }
+}
+
+export function eyePreset(id: ExperimentId): EyeSetting | null {
+  switch (id) {
+    case 'eye-accommodation':
+      // A normal eye of 20: near point at 8 cm. The object starts well within reach.
+      return DEFAULT_EYE
+    case 'eye-glasses':
+      // An eye 1.14 mm too long (K = −3 D) looking at a distant chart, without glasses.
+      return { ...DEFAULT_EYE, ...eyeCondition('myopia'), age: 25, objectDistance: null }
+    case 'eye-ageing':
+      // Reading at 40 cm: in reach at 20, out of reach from about 54.
+      return { ...DEFAULT_EYE, objectDistance: cm(40), chart: 'text', letterHeight: mm(2), fieldOfView: mm(2) }
+    default:
+      return null
+  }
+}
+
+/** The eye as the physics layer takes it, optionally at another age. */
+export function toEyeSetup(eye: EyeSetting, age: number = eye.age): EyeSetup {
+  return {
+    axialLength: eye.axialLength,
+    cornealRadius: eye.cornealRadius,
+    age,
+    pupilDiameter: eye.pupilDiameter,
+    objectDistance: eye.objectDistance ?? Infinity,
+    letterHeight: eye.letterHeight,
+    letterAngle: eye.letterAngle,
+    heldAccommodation: eye.heldAccommodation,
+    glasses: eye.glassesOn ? { power: eye.glassesPower, vertexDistance: eye.vertexDistance } : null,
+  }
 }
 
 export const DEFAULT_EXPERIMENT: ExperimentId = 'convex-lens'

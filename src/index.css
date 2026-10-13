@@ -150,20 +150,137 @@ button {
   font-size: 12px;
 }
 
-.header-presets {
+/* One colour per topic, shared by its tab, its row of experiments and its group on the start screen. */
+[data-topic='surfaces'] {
+  --topic: #f2b441;
+}
+
+[data-topic='imaging'] {
+  --topic: #4da3ff;
+}
+
+[data-topic='beams'] {
+  --topic: #ff7366;
+}
+
+[data-topic='waves'] {
+  --topic: #a78bfa;
+}
+
+[data-topic='polarisation'] {
+  --topic: #2dd4bf;
+}
+
+[data-topic='eye'] {
+  --topic: #7bd88f;
+}
+
+/* Level 1: the topics, as tabs. The open one joins the row of its experiments below. */
+.topic-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 0 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.topic-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px 7px;
+  border: 1px solid transparent;
+  border-bottom: 0;
+  border-radius: 7px 7px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 550;
+  white-space: nowrap;
+}
+
+.topic-tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--topic) 7%, transparent);
+}
+
+.topic-tab.active {
+  /* Above the line of the row below, which it hides under itself. */
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  border-color: color-mix(in srgb, var(--topic) 45%, var(--line));
+  background: color-mix(in srgb, var(--topic) 11%, var(--panel));
+  box-shadow: inset 0 2px 0 var(--topic);
+}
+
+.topic-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--topic);
+  opacity: 0.75;
+}
+
+.topic-tab.active .topic-dot,
+.topic-tab:hover .topic-dot {
+  opacity: 1;
+}
+
+.topic-count {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--faint);
+}
+
+.topic-tab.active .topic-count {
+  color: var(--topic);
+}
+
+/* Level 2: the experiments of the open topic, on a band of its colour. */
+.topic-experiments {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 14px 8px;
+  padding: 6px 14px;
   flex-wrap: wrap;
   row-gap: 5px;
+  border-top: 1px solid color-mix(in srgb, var(--topic) 45%, var(--line));
+  background: color-mix(in srgb, var(--topic) 11%, var(--panel));
+  margin-top: -1px;
 }
 
-.presets-divider {
-  align-self: stretch;
-  width: 1px;
-  margin: 2px 4px;
-  background: var(--line);
+.topic-experiments-label {
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: color-mix(in srgb, var(--topic) 70%, var(--muted));
+  margin-right: 4px;
+}
+
+.topic-experiments .preset {
+  border-color: color-mix(in srgb, var(--topic) 22%, var(--line));
+  background: color-mix(in srgb, var(--topic) 5%, var(--bg));
+}
+
+.topic-experiments .preset:hover {
+  border-color: color-mix(in srgb, var(--topic) 60%, var(--line));
+}
+
+.topic-experiments .preset.active {
+  border-color: var(--topic);
+  background: color-mix(in srgb, var(--topic) 24%, var(--bg));
+}
+
+.topic-experiments .preset-number {
+  background: color-mix(in srgb, var(--topic) 20%, var(--bg));
+  color: color-mix(in srgb, var(--topic) 80%, #fff);
+}
+
+.topic-experiments .preset.active .preset-number {
+  background: var(--topic);
+  color: #04111f;
 }
 
 /* A button that opens a short list of actions under it. */
@@ -311,16 +428,84 @@ button {
   display: grid;
   gap: 8px;
   padding: 8px;
+  position: relative;
 }
 
+/*
+ * A panel the student has dragged to another size carries it in a custom property (--side, --bottom, --palette,
+ * --controls, --physics, --upper); without one the layout's own size applies.
+ */
 .bench-workspace {
-  grid-template-columns: 158px minmax(0, 1fr) clamp(300px, 27vw, 400px);
-  grid-template-rows: minmax(300px, 1fr) minmax(190px, 34%);
+  grid-template-columns: var(--palette, 158px) minmax(0, 1fr) var(--side, clamp(300px, 27vw, 400px));
+  grid-template-rows: minmax(160px, 1fr) var(--bottom, minmax(190px, 34%));
 }
 
 .surface-workspace {
-  grid-template-columns: minmax(0, 1fr) clamp(320px, 30vw, 420px);
-  grid-template-rows: minmax(300px, 1fr) minmax(170px, 30%);
+  grid-template-columns: minmax(0, 1fr) var(--side, clamp(320px, 30vw, 420px));
+  grid-template-rows: minmax(160px, 1fr) var(--bottom, minmax(170px, 30%));
+}
+
+/* The handle in the gap before a track, for dragging the panel beside it larger or smaller. */
+.panel-resizer {
+  position: absolute;
+  z-index: 2;
+  touch-action: none;
+  display: grid;
+  place-items: center;
+}
+
+.panel-resizer.x {
+  top: 0;
+  bottom: 0;
+  left: -9px;
+  width: 10px;
+  cursor: col-resize;
+}
+
+.panel-resizer.y {
+  left: 0;
+  right: 0;
+  top: -9px;
+  height: 10px;
+  cursor: row-resize;
+}
+
+.panel-resizer::after {
+  content: '';
+  border-radius: 2px;
+  background: var(--line);
+}
+
+.panel-resizer.x::after {
+  width: 3px;
+  height: min(44px, 100%);
+}
+
+.panel-resizer.y::after {
+  height: 3px;
+  width: min(44px, 100%);
+}
+
+.panel-resizer:hover::after,
+.panel-resizer:focus-visible::after,
+.panel-resizer.dragging::after {
+  background: var(--accent);
+}
+
+.panel-resizer.x:hover::after,
+.panel-resizer.x:focus-visible::after,
+.panel-resizer.x.dragging::after {
+  height: 100%;
+}
+
+.panel-resizer.y:hover::after,
+.panel-resizer.y:focus-visible::after,
+.panel-resizer.y.dragging::after {
+  width: 100%;
+}
+
+.panel-resizer:focus-visible {
+  outline: none;
 }
 
 .bench-workspace .screen-panel {
@@ -335,9 +520,10 @@ button {
 .bottom-row {
   grid-column: 1 / -1;
   display: grid;
-  grid-template-columns: minmax(230px, 0.8fr) minmax(250px, 1fr) minmax(300px, 1.3fr);
+  grid-template-columns: var(--controls, minmax(230px, 0.8fr)) var(--physics, minmax(250px, 1fr)) minmax(0, 1.3fr);
   gap: 8px;
   min-height: 0;
+  position: relative;
 }
 
 .bottom-row.single {
@@ -346,22 +532,24 @@ button {
 
 /* An exam bench without the notebook: controls and physics only. */
 .bottom-row.pair {
-  grid-template-columns: minmax(230px, 0.8fr) minmax(250px, 1fr);
+  grid-template-columns: var(--controls, minmax(230px, 0.8fr)) minmax(0, 1fr);
 }
 
 .surface-workspace:not(:has(.bottom-row)) {
-  grid-template-rows: minmax(300px, 1fr);
+  grid-template-rows: minmax(160px, 1fr);
 }
 
 .surface-side {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
   gap: 8px;
   min-height: 0;
+  position: relative;
 }
 
-.surface-side .panel {
-  flex: 1;
+/* Controls above the measurements. */
+.surface-side:has(.physics) {
+  grid-template-rows: var(--upper, minmax(0, 1fr)) minmax(0, 1fr);
 }
 
 .panel {
@@ -1474,6 +1662,17 @@ td .theory {
     grid-template-rows: none;
   }
 
+  /* One column: every panel takes its own height and nothing is dragged. */
+  .surface-side,
+  .surface-side:has(.physics),
+  .surface-workspace:not(:has(.bottom-row)) {
+    grid-template-rows: none;
+  }
+
+  .panel-resizer {
+    display: none;
+  }
+
   .bench-panel,
   .surface-panel {
     height: 430px;
@@ -1518,8 +1717,196 @@ td .theory {
 
 /* ---------- Michelson interferometer ---------- */
 .interferometer-workspace {
-  grid-template-columns: minmax(0, 1fr) clamp(300px, 27vw, 400px);
-  grid-template-rows: minmax(300px, 1fr) minmax(210px, 38%);
+  grid-template-columns: minmax(0, 1fr) var(--side, clamp(300px, 27vw, 400px));
+  grid-template-rows: minmax(160px, 1fr) var(--bottom, minmax(210px, 38%));
+}
+
+/* ---------- Human eye ---------- */
+.eye-workspace {
+  grid-template-columns: minmax(0, 1fr) var(--side, clamp(300px, 27vw, 400px));
+  grid-template-rows: minmax(160px, 1fr) var(--bottom, minmax(230px, 42%));
+}
+
+.eye-workspace .screen-panel {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.eye-workspace .bottom-row {
+  grid-column: 1;
+}
+
+.eye-axis {
+  stroke: #3a4a5c;
+  stroke-width: 1;
+  stroke-dasharray: 7 4 1.5 4;
+}
+
+.eye-globe {
+  fill: rgba(159, 211, 255, 0.04);
+  stroke: #5d6d7f;
+  stroke-width: 1.4;
+}
+
+.eye-retina {
+  fill: none;
+  stroke: #e58a6b;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.eye-cornea {
+  fill: none;
+  stroke: #9fd3ff;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.eye-lens {
+  fill: rgba(124, 196, 255, 0.22);
+  stroke: #7cc4ff;
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.eye-iris {
+  stroke: #b0835a;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+}
+
+.eye-glasses {
+  fill: rgba(200, 225, 255, 0.16);
+  stroke: #c8e1ff;
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+}
+
+.eye-anatomy line {
+  stroke: #56657a;
+  stroke-width: 1;
+}
+
+.eye-anatomy ellipse {
+  fill: rgba(176, 131, 90, 0.35);
+  stroke: #8a6a4c;
+  stroke-width: 1;
+}
+
+.eye-ray path {
+  fill: none;
+  stroke: #ffd166;
+  stroke-width: 1.3;
+  stroke-linejoin: round;
+}
+
+.eye-ray.axial path {
+  stroke-opacity: 0.45;
+}
+
+.eye-ray path.beyond {
+  stroke-dasharray: 4 3;
+  stroke-opacity: 0.6;
+}
+
+.eye-blur {
+  stroke: #ff5a4f;
+  stroke-width: 4;
+  stroke-linecap: butt;
+}
+
+.eye-focus {
+  fill: #ffd166;
+  stroke: #0b0f14;
+  stroke-width: 1;
+}
+
+.eye-scale line {
+  stroke: var(--muted);
+  stroke-width: 1.5;
+}
+
+.scene-label.faint {
+  fill: var(--faint);
+}
+
+.retinal-images {
+  display: grid;
+  gap: 8px;
+  margin: 9px 9px 0;
+}
+
+.retinal-images.several {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.retinal-image {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.retinal-image canvas {
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+  border: 1px solid #2c3847;
+  border-radius: 4px;
+  background: #000;
+}
+
+.retinal-image figcaption {
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.eye-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.eye-table th {
+  text-align: left;
+  line-height: 1.3;
+  white-space: normal;
+  font-weight: 400;
+  color: var(--muted);
+  padding: 3px 8px 3px 0;
+}
+
+.eye-table thead th {
+  text-align: right;
+  vertical-align: bottom;
+  font-size: 11px;
+  color: var(--faint);
+  padding-right: 0;
+  padding-left: 8px;
+}
+
+.eye-table td {
+  text-align: right;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  padding: 3px 0 3px 8px;
+  white-space: nowrap;
+}
+
+.eye-table tr + tr th,
+.eye-table tr + tr td {
+  border-top: 1px solid var(--line-soft);
+}
+
+.eye-table td.withheld {
+  color: var(--faint);
+  font-style: italic;
+  font-family: inherit;
+}
+
+.eye-workspace .control-body .field-label {
+  margin-top: 4px;
 }
 
 .interferometer-workspace .screen-panel {
@@ -1610,11 +1997,14 @@ td .theory {
 }
 
 @media (max-width: 1080px) {
+  .eye-workspace,
   .interferometer-workspace {
     grid-template-columns: 1fr;
     grid-template-rows: none;
   }
 
+  .eye-workspace .screen-panel,
+  .eye-workspace .bottom-row,
   .interferometer-workspace .screen-panel,
   .interferometer-workspace .bottom-row {
     grid-column: 1;
@@ -1921,9 +2311,17 @@ tfoot td {
 }
 
 .catalogue-topic h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 13px;
   font-weight: 650;
   color: var(--text);
+}
+
+.catalogue-topic .preset-number {
+  background: color-mix(in srgb, var(--topic) 20%, var(--bg));
+  color: color-mix(in srgb, var(--topic) 80%, #fff);
 }
 
 .catalogue-grid {
@@ -1945,7 +2343,7 @@ tfoot td {
 }
 
 .catalogue-card:hover {
-  border-color: var(--accent);
+  border-color: var(--topic, var(--accent));
   background: var(--panel-2);
 }
 
@@ -1955,7 +2353,7 @@ tfoot td {
 }
 
 .catalogue-card:hover .preset-number {
-  background: var(--accent);
+  background: var(--topic, var(--accent));
   color: #04111f;
 }
 

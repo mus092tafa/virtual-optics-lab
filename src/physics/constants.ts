@@ -84,6 +84,52 @@ export const MICHELSON_LENS_TO_SPLITTER = cm(10)
 /** Focal lengths of the beam-expanding lens. */
 export const EXPANDER_FOCAL_LENGTHS: readonly number[] = [cm(1), cm(2), cm(5)]
 
+// --- Schematic eye ---------------------------------------------------------
+/**
+ * The Gullstrand–Emsley schematic eye (H. H. Emsley, Visual Optics, 1936): one
+ * corneal surface and a lens with two, relaxed and accommodated by 8.6 D.
+ * Radii are positive when the centre of curvature lies behind the surface.
+ */
+export const EYE = {
+  /** Aqueous and vitreous humour. */
+  humourIndex: 4 / 3,
+  lensIndex: 1.416,
+  cornealRadius: mm(7.8),
+  relaxed: { chamberDepth: mm(3.6), frontRadius: mm(10), backRadius: -mm(6), thickness: mm(3.6) },
+  accommodated: { chamberDepth: mm(3.2), frontRadius: mm(5), backRadius: -mm(5), thickness: mm(4) },
+} as const
+
+/** Hofstetter's average amplitude of accommodation, A = 18.5 − 0.30 × age (dioptres, age in years). */
+export const HOFSTETTER_AVERAGE = { atBirth: 18.5, perYear: 0.3 } as const
+
+/** Ranges the eye apparatus offers; the model is not used outside them. */
+export const EYE_RANGES = {
+  axialLength: { min: mm(21), max: mm(27) },
+  cornealRadius: { min: mm(7), max: mm(8.6) },
+  age: { min: 15, max: 75 },
+  pupilDiameter: { min: mm(2), max: mm(8) },
+  objectDistance: { min: cm(5), max: cm(600) },
+  vertexDistance: { min: 0, max: mm(16) },
+  /** Dioptres. */
+  glassesPower: { min: -10, max: 10, step: 0.25 },
+} as const
+
+/** Sizes used only to draw the eye; they enter no calculation. */
+export const EYE_ANATOMY = {
+  /** Half the diameter of the cornea, where it meets the sclera. */
+  corneaHalfHeight: mm(5.8),
+  /** Half the vertical diameter of the eyeball. */
+  globeHalfHeight: mm(12),
+  /** Half the height of a spectacle lens. */
+  glassesHalfHeight: mm(9),
+} as const
+
+export const DEFAULT_VERTEX_DISTANCE = mm(12)
+/** A letter of a test chart is five strokes high. */
+export const LETTER_STROKES = 5
+/** Blur-disc diameter over stroke width at which a chart stops being sharp, slightly blurred, blurred. */
+export const SHARPNESS_LIMITS = [0.25, 1, 3] as const
+
 // --- Refractive indices (sodium D line, 589 nm, 20 °C) ----------------------
 export interface Material {
   id: string

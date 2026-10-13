@@ -42,7 +42,7 @@ export interface BenchPaperQuestion extends QuestionBase {
   /** The apparatus as the student finds it. */
   setup: LabSnapshot
   fields: BenchField[]
-  /** Hide lens focal lengths and the interferometer's laser line from the student. */
+  /** Hide lens focal lengths, the interferometer's laser line and the eye's length, cornea and age from the student. */
   concealUnknowns: boolean
   /** Whether the lab notebook, which evaluates the experiment's formula, may be used. */
   allowNotebook: boolean

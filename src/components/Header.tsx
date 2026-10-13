@@ -4,6 +4,7 @@ import { TOPICS, topicOf } from '../education/topics'
 import { actions, useLab } from '../state/labState'
 import type { LabMode } from '../state/labState'
 import { SWEEP_LABELS, applySweep } from '../state/sweeps'
+import { resetPanelLayouts } from './hooks'
 
 const MODES: { id: LabMode; label: string; title: string }[] = [
   { id: 'experiment', label: 'Experiment', title: 'Calculated results are withheld until you ask for them' },
@@ -143,6 +144,16 @@ export function Header({ onHome }: Props) {
                     <span>Remove every component from the rail</span>
                   </button>
                 )}
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    resetPanelLayouts()
+                    flash('Panel sizes reset')
+                  }}
+                >
+                  <strong>Reset the panel sizes</strong>
+                  <span>Undo every section you dragged larger or smaller</span>
+                </button>
                 <button role="menuitem" onClick={save}>
                   <strong>Save to a file…</strong>
                   <span>Download this set-up</span>
@@ -158,23 +169,28 @@ export function Header({ onHome }: Props) {
         </div>
       </div>
 
-      <div className="header-presets">
-        <nav className="segmented" aria-label="Topic">
-          {TOPICS.map((entry) => (
-            <button
-              key={entry.id}
-              className={entry.id === topic.id ? 'active' : ''}
-              title={entry.experiments.map((id) => experiment(id).short).join(' · ')}
-              // Choosing a topic opens its first experiment; the one in progress is left alone.
-              onClick={() => entry.id !== topic.id && open(entry.experiments[0])}
-            >
-              {entry.name}
-            </button>
-          ))}
-        </nav>
-        <span className="presets-divider" aria-hidden="true" />
+      {/* Two levels: the topics as tabs, and under them the experiments of the open topic in that topic's colour. */}
+      <nav className="topic-tabs" aria-label="Topic">
+        {TOPICS.map((entry) => (
+          <button
+            key={entry.id}
+            data-topic={entry.id}
+            className={`topic-tab${entry.id === topic.id ? ' active' : ''}`}
+            aria-current={entry.id === topic.id ? 'true' : undefined}
+            title={entry.experiments.map((id) => experiment(id).short).join(' · ')}
+            // Choosing a topic opens its first experiment; the one in progress is left alone.
+            onClick={() => entry.id !== topic.id && open(entry.experiments[0])}
+          >
+            <span className="topic-dot" aria-hidden="true" />
+            {entry.name}
+            <span className="topic-count">{entry.experiments.length}</span>
+          </button>
+        ))}
+      </nav>
+      <div className="topic-experiments" data-topic={topic.id} role="group" aria-label={`Experiments in ${topic.name}`}>
+        <span className="topic-experiments-label">Experiments</span>
         {topic.experiments.map(experiment).map((entry) => (
-          <button key={entry.id} className={`preset${entry.id === experimentId ? ' active' : ''}`} onClick={() => open(entry.id)} title={entry.goal}>
+          <button key={entry.id} className={`preset${entry.id === experimentId ? ' active' : ''}`} aria-current={entry.id === experimentId ? 'true' : undefined} onClick={() => open(entry.id)} title={entry.goal}>
             <span className="preset-number">{entry.number}</span>
             {entry.short}
           </button>

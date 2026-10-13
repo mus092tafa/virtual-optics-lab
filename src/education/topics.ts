@@ -4,7 +4,7 @@
  */
 import type { ExperimentId } from '../state/presets'
 
-export type TopicId = 'surfaces' | 'imaging' | 'beams' | 'waves' | 'polarisation'
+export type TopicId = 'surfaces' | 'imaging' | 'beams' | 'waves' | 'polarisation' | 'eye'
 
 export interface Topic {
   id: TopicId
@@ -19,6 +19,7 @@ export const TOPICS: readonly Topic[] = [
   { id: 'beams', name: 'Laser Beams', experiments: ['hene-lens'] },
   { id: 'waves', name: 'Diffraction & Interference', experiments: ['single-slit', 'double-slit', 'grating', 'airy', 'michelson'] },
   { id: 'polarisation', name: 'Polarisation', experiments: ['malus'] },
+  { id: 'eye', name: 'The Eye', experiments: ['eye-accommodation', 'eye-glasses', 'eye-ageing'] },
 ]
 
 export function topicOf(id: ExperimentId): Topic {

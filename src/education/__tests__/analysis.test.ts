@@ -23,6 +23,7 @@ const context: AnalysisContext = {
   surface: null,
   michelson: null,
   prism: null,
+  eye: null,
 }
 const lens = experiment('convex-lens')
 const row = (id: string, values: Record<string, number>): NotebookRow => {
