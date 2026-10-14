@@ -5,6 +5,7 @@ import { actions, useLab } from '../state/labState'
 import type { LabMode } from '../state/labState'
 import { SWEEP_LABELS, applySweep } from '../state/sweeps'
 import { resetPanelLayouts } from './hooks'
+import { BrandMark } from './exam/BrandMark'
 
 const MODES: { id: LabMode; label: string; title: string }[] = [
   { id: 'experiment', label: 'Experiment', title: 'Calculated results are withheld until you ask for them' },
@@ -95,10 +96,7 @@ export function Header({ onHome }: Props) {
               ← Start
             </button>
           )}
-          <svg viewBox="0 0 32 32" aria-hidden="true">
-            <path d="M16 3 Q25 16 16 29 Q7 16 16 3Z" fill="none" stroke="#7cc4ff" strokeWidth="1.8" />
-            <path d="M1 11 L16 11 L31 19 M1 21 L16 21 L31 13" stroke="#ff5a4f" strokeWidth="1.4" fill="none" />
-          </svg>
+          <BrandMark />
           <div>
             <h1>Virtual Optics Laboratory</h1>
             <p>Physically modelled optical bench for engineering students</p>

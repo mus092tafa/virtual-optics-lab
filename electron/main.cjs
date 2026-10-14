@@ -49,6 +49,7 @@ function createWindow() {
     backgroundColor: '#0b0f14',
     autoHideMenuBar: true,
     title: 'Virtual Optics Laboratory',
+    icon: path.join(__dirname, 'icon.png'),
     webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true, preload: path.join(__dirname, 'preload.cjs') },
   })
   if (devUrl) window.loadURL(devUrl)

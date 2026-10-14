@@ -44,6 +44,19 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run build:student
+      - name: Let the build write the icon into the exe
+        shell: bash
+        # The configurations leave the exe alone so that the portable file also builds on Linux without
+        # wine; on Windows rcedit runs natively, so the app's own exe gets the icon and version details.
+        run: |
+          node -e '
+            const fs = require("fs")
+            for (const file of ["electron-builder.admin.json", "electron-builder.student.json"]) {
+              const config = JSON.parse(fs.readFileSync(file, "utf8"))
+              config.win.signAndEditExecutable = true
+              fs.writeFileSync(file, JSON.stringify(config, null, 2))
+            }
+          '
       - run: npx electron-builder --win portable nsis --x64 --config electron-builder.admin.json --publish never
       - run: npx electron-builder --win portable nsis --x64 --config electron-builder.student.json --publish never
       - uses: actions/upload-artifact@v4
