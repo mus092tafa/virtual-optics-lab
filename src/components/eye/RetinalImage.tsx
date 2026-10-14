@@ -17,8 +17,7 @@ interface Props {
 /** The chart as the eye images it: its retinal size and blur come from the eye solver. */
 export function RetinalImage({ view, chart, fieldOfView, label }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const letterHeight = Math.abs(view.letterImageHeight)
-  const { blurDiameter, illuminance } = view
+  const { letterScale, pointSpread, illuminance } = view
   // The picture is computed at the size it is shown, so that a larger panel is not an enlarged, softened copy.
   const { width } = useElementSize(canvasRef)
   const size = Math.min(MAX_CANVAS_SIZE, Math.round(width * window.devicePixelRatio))
@@ -32,10 +31,10 @@ export function RetinalImage({ view, chart, fieldOfView, label }: Props) {
         canvas.width = size
         canvas.height = size
       }
-      renderRetinalImage(canvas.getContext('2d')!, { chart, letterHeight, blurDiameter, illuminance, fieldOfView }, size)
+      renderRetinalImage(canvas.getContext('2d')!, { chart, letterScale, pointSpread, illuminance, fieldOfView }, size)
     })
     return () => cancelAnimationFrame(frame)
-  }, [chart, letterHeight, blurDiameter, illuminance, fieldOfView, size])
+  }, [chart, letterScale, pointSpread, illuminance, fieldOfView, size])
 
   return (
     <figure className="retinal-image">

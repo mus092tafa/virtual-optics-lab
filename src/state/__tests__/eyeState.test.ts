@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { EYE_RANGES } from '../../physics/constants'
+import { EYE_ABERRATION_RANGES, EYE_RANGES } from '../../physics/constants'
 import { NORMAL_AXIAL_LENGTH, refractiveError, solveEye } from '../../physics/eye'
 import { cm, mm } from '../../physics/units'
 import { actions, labStore, mergeConfiguration } from '../labState'
@@ -72,6 +72,79 @@ describe('eye section of the laboratory', () => {
     expect(eye.glassesOn).toBe(false)
     actions.useKnownEye()
     expect(labStore.get().eye.concealed).toBe(false)
+  })
+
+  it('loads a configuration saved before the aberrations existed as a symmetric, paraxial eye in white light', () => {
+    actions.loadExperiment('eye-glasses')
+    const saved = JSON.parse(JSON.stringify(actions.exportSnapshot()))
+    for (const key of ['cornealRadiusCross', 'cornealMeridian', 'glassesCylinder', 'glassesAxis', 'wavelength', 'dispersion', 'realRays', 'pupilZone', 'cornealAsphericity', 'lensAsphericity', 'sceneView']) delete saved.eye[key]
+    actions.loadExperiment('eye-astigmatism')
+    actions.loadSnapshot(saved)
+    const { eye } = labStore.get()
+    expect(eye.cornealRadiusCross).toBeNull()
+    expect(eye.glassesCylinder).toBe(0)
+    expect(eye.wavelength).toBeNull()
+    expect(eye.dispersion).toBe(false)
+    expect(eye.realRays).toBe(false)
+    expect(eye.sceneView).toBe('side')
+    const solution = solveEye(toEyeSetup(eye))
+    expect(solution.astigmatic).toBe(false)
+    expect(solution.realRays).toBe(false)
+    expect(solution.refractiveError).toBeCloseTo(-3, 9)
+  })
+
+  it('offers astigmatism as a second corneal radius, 2 D steeper vertically', () => {
+    const astigmat = { ...DEFAULT_EYE, ...eyeCondition('astigmatism') }
+    const solution = solveEye(toEyeSetup(astigmat))
+    expect(solution.cornealPowerCross - solution.cornealPower).toBeCloseTo(2, 9)
+    expect(solution.refraction.cylinder).toBeCloseTo(-2, 6)
+    // Every other condition is an eye with one corneal radius again.
+    for (const condition of ['normal', 'myopia', 'hyperopia', 'presbyopia'] as const) expect({ ...astigmat, ...eyeCondition(condition) }.cornealRadiusCross).toBeNull()
+  })
+
+  it('keeps the new settings within their ranges and directions within half a turn', () => {
+    actions.loadExperiment('eye-astigmatism')
+    actions.updateEye({ cornealRadiusCross: mm(3), cornealMeridian: Math.PI * 1.25, glassesCylinder: -9.1, glassesAxis: -Math.PI / 4, wavelength: 200e-9, pupilZone: 2, cornealAsphericity: -7, lensAsphericity: 9 })
+    const { eye } = labStore.get()
+    expect(eye.cornealRadiusCross).toBe(EYE_RANGES.cornealRadius.min)
+    expect(eye.cornealMeridian).toBeCloseTo(Math.PI / 4, 12)
+    expect(eye.glassesCylinder).toBe(-6)
+    expect(eye.glassesAxis).toBeCloseTo((3 * Math.PI) / 4, 12)
+    expect(eye.wavelength).toBe(EYE_ABERRATION_RANGES.wavelength.min)
+    expect(eye.pupilZone).toBe(EYE_ABERRATION_RANGES.pupilZone.max)
+    expect(eye.cornealAsphericity).toBe(EYE_ABERRATION_RANGES.cornealAsphericity.min)
+    expect(eye.lensAsphericity).toBe(EYE_ABERRATION_RANGES.lensAsphericity.max)
+    actions.updateEye({ glassesCylinder: -1.3 })
+    expect(labStore.get().eye.glassesCylinder).toBe(-1.25)
+  })
+
+  it('swaps in an unknown astigmatic eye in the astigmatism experiment, and a symmetric one elsewhere', () => {
+    actions.loadExperiment('eye-astigmatism')
+    actions.useUnknownEye()
+    const astigmat = solveEye(toEyeSetup(labStore.get().eye))
+    expect(labStore.get().eye.concealed).toBe(true)
+    expect(astigmat.astigmatic).toBe(true)
+    expect(-astigmat.refraction.cylinder).toBeGreaterThanOrEqual(1 - 1e-6)
+    expect(-astigmat.refraction.cylinder).toBeLessThanOrEqual(3 + 1e-6)
+    expect(labStore.get().eye.glassesCylinder).toBe(0)
+    actions.useKnownEye()
+    expect(labStore.get().eye.cornealRadiusCross).toBeNull()
+    actions.loadExperiment('eye-glasses')
+    actions.useUnknownEye()
+    expect(labStore.get().eye.cornealRadiusCross).toBeNull()
+    actions.useKnownEye()
+  })
+
+  it('starts the aberration experiments with their aberration switched on and the others off', () => {
+    const astigmatism = eyePreset('eye-astigmatism')!
+    expect(astigmatism.cornealRadiusCross).not.toBeNull()
+    expect(astigmatism.chart).toBe('fan')
+    expect([astigmatism.dispersion, astigmatism.realRays]).toEqual([false, false])
+    const chromatic = eyePreset('eye-chromatic')!
+    expect([chromatic.cornealRadiusCross, chromatic.dispersion, chromatic.realRays]).toEqual([null, true, false])
+    const spherical = eyePreset('eye-spherical')!
+    expect([spherical.cornealRadiusCross, spherical.dispersion, spherical.realRays]).toEqual([null, false, true])
+    expect([spherical.cornealAsphericity, spherical.lensAsphericity]).toEqual([0, 0])
   })
 
   it('has a preset for each eye experiment', () => {

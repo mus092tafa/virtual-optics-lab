@@ -1,17 +1,21 @@
 /**
  * Draws the test chart as the eye images it on the retina: the chart at its
- * retinal size, convolved with the blur disc the physics layer calculated.
- * Nothing here decides how blurred the image is.
+ * retinal size, convolved with the light of one object point that the
+ * physics layer calculated. Nothing here decides how blurred the image is.
  */
+import type { Mat2 } from '../physics/astigmatism'
 import { LETTER_STROKES } from '../physics/constants'
+import type { SpreadComponent } from '../physics/eye'
 import type { EyeChart } from '../state/presets'
+import { MIN_BLUR_RADIUS, convolveKernels, ellipseBlur, reachOf, singleEllipse, spreadKernels } from './pointSpread'
 import { discBlur } from './screenRenderer'
 
 export interface RetinalImage {
   chart: EyeChart
-  /** Height of one letter on the retina. */
-  letterHeight: number
-  blurDiameter: number
+  /** The chart, in letter heights, to the retina in metres, as it is seen. */
+  letterScale: Mat2
+  /** The light of one object point on the retina. */
+  pointSpread: readonly SpreadComponent[]
   /** Brightness relative to the widest pupil. */
   illuminance: number
   /** Width of the part of the retina shown. */
@@ -20,8 +24,10 @@ export interface RetinalImage {
 
 /** Blur radii above this many pixels are computed on a coarser grid. */
 const MAX_BLUR_RADIUS = 48
-/** Below this radius, in pixels, a disc no longer changes the picture. */
-const MIN_BLUR_RADIUS = 0.6
+/** Largest grid, a power of two, on which a picture is convolved by Fourier transform. */
+const MAX_FFT_GRID = 512
+/** Meridians of the fan chart, in degrees as seen facing the eye. */
+export const FAN_MERIDIANS = [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165]
 
 /** The field convolved with a uniform disc; unchanged when the disc is smaller than a pixel. Energy conserving. */
 export function blurField(field: Float32Array, n: number, radius: number): Float32Array {
@@ -82,6 +88,28 @@ function drawChart(ctx: CanvasRenderingContext2D, chart: EyeChart): void {
       TEXT_LINES.forEach((line, index) => ctx.fillText(line, 0, (index - (TEXT_LINES.length - 1) / 2) * pitch + 0.5))
       break
     }
+    case 'fan': {
+      // One line along each meridian, with a gap at the centre where they would run together. A line along the
+      // meridian θ points to (cos θ, sin θ) on this grid, whose y runs downwards: that is where the eye sees it.
+      ctx.lineWidth = 1 / LETTER_STROKES
+      ctx.lineCap = 'butt'
+      ctx.font = '0.85px Inter, system-ui, sans-serif'
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      for (const meridian of FAN_MERIDIANS) {
+        const angle = (meridian * Math.PI) / 180
+        const along = [Math.cos(angle), Math.sin(angle)]
+        for (const side of [-1, 1]) {
+          ctx.beginPath()
+          ctx.moveTo(side * 1.3 * along[0], side * 1.3 * along[1])
+          ctx.lineTo(side * 4.4 * along[0], side * 4.4 * along[1])
+          ctx.stroke()
+        }
+        // The number stands at the upper end of its line, 180 at the left: the examiner's scale as the eye sees it.
+        if (meridian % 30 === 0) ctx.fillText(String(meridian === 0 ? 180 : meridian), -5.3 * along[0], -5.3 * along[1])
+      }
+      break
+    }
     case 'face': {
       // A schematic face eight letters high, drawn with strokes of the letters' stroke width.
       ctx.lineWidth = 1 / LETTER_STROKES
@@ -121,43 +149,72 @@ function scratchCanvas(size: number): CanvasRenderingContext2D {
   return scratch.getContext('2d', { willReadFrequently: true })!
 }
 
+const nextPowerOfTwo = (value: number) => 2 ** Math.ceil(Math.log2(value))
+
 /**
  * Paints the retinal image into a square canvas. The image is shown the way
- * it is seen, upright, although it is inverted on the retina.
+ * the eye sees it, upright, although it is inverted on the retina.
  */
 export function renderRetinalImage(ctx: CanvasRenderingContext2D, image: RetinalImage, size: number): void {
   const pxPerMeter = size / image.fieldOfView
-  const radius = (image.blurDiameter / 2) * pxPerMeter
+  const reach = reachOf(image.pointSpread) * pxPerMeter
+  const ellipse = singleEllipse(image.pointSpread)
   // Light from outside the visible field blurs into it: work on a padded, possibly coarser, field.
-  const padding = Math.min(size, Math.ceil(radius))
-  const factor = Math.max(1, Math.ceil(radius / MAX_BLUR_RADIUS))
-  const n = Math.ceil((size + 2 * padding) / factor)
+  let factor: number
+  let n: number
+  let padding: number
+  if (ellipse) {
+    padding = Math.min(size, Math.ceil(reach))
+    factor = Math.max(1, Math.ceil(reach / MAX_BLUR_RADIUS))
+    n = Math.ceil((size + 2 * padding) / factor)
+    padding /= factor
+  } else {
+    // The transform needs a power of two, and takes the field as periodic: the margin keeps the wrap out of the picture.
+    factor = 1
+    const side = () => nextPowerOfTwo(Math.ceil(size / factor) + 2 * Math.ceil(Math.min(size, reach) / factor + 2))
+    while (side() > MAX_FFT_GRID) factor++
+    n = side()
+    padding = (n - size / factor) / 2
+  }
 
   const work = scratchCanvas(n)
   work.setTransform(1, 0, 0, 1, 0, 0)
   work.fillStyle = '#fff'
   work.fillRect(0, 0, n, n)
-  const unit = (image.letterHeight * pxPerMeter) / factor
-  work.setTransform(unit, 0, 0, unit, n / 2, n / 2)
+  const unit = pxPerMeter / factor
+  const [a, b, c, d] = image.letterScale
+  // The scale matrix holds the directions seen facing the eye; on a grid with y downwards it draws the eye's own view.
+  work.setTransform(a * unit, c * unit, b * unit, d * unit, n / 2, n / 2)
   drawChart(work, image.chart)
   work.setTransform(1, 0, 0, 1, 0, 0)
 
   const pixels = work.getImageData(0, 0, n, n)
-  let field = new Float32Array(n * n)
+  const field = new Float32Array(n * n)
   // The chart is drawn in grey levels, so one channel carries the whole picture.
   for (let i = 0; i < field.length; i++) field[i] = pixels.data[4 * i] / 255
-  field = blurField(field, n, radius / factor) as Float32Array<ArrayBuffer>
+
+  let channels: [Float32Array, Float32Array, Float32Array]
+  let weights: readonly number[] = [1, 1, 1]
+  if (ellipse) {
+    const major = (ellipse.major * pxPerMeter) / factor
+    const minor = (ellipse.minor * pxPerMeter) / factor
+    // A circle takes the disc blur of the screen; a patch smaller than a pixel changes nothing.
+    const blurred = major - minor < 1e-6 ? blurField(field, n, major) : major <= MIN_BLUR_RADIUS ? field : ellipseBlur(field, n, major, minor, ellipse.angle)
+    channels = [blurred, blurred, blurred]
+    weights = image.pointSpread[0].rgb
+  } else {
+    channels = convolveKernels(field, n, spreadKernels(image.pointSpread, pxPerMeter / factor))
+  }
 
   const gain = image.illuminance
   for (let i = 0; i < field.length; i++) {
-    const value = Math.round(255 * Math.pow(Math.min(1, Math.max(0, field[i] * gain)), 1 / 2.2))
-    pixels.data[4 * i] = value
-    pixels.data[4 * i + 1] = value
-    pixels.data[4 * i + 2] = value
+    for (let channel = 0; channel < 3; channel++) {
+      pixels.data[4 * i + channel] = Math.round(255 * Math.pow(Math.min(1, Math.max(0, channels[channel][i] * weights[channel] * gain)), 1 / 2.2))
+    }
     pixels.data[4 * i + 3] = 255
   }
   work.putImageData(pixels, 0, 0)
   ctx.imageSmoothingEnabled = true
   ctx.imageSmoothingQuality = 'high'
-  ctx.drawImage(work.canvas, padding / factor, padding / factor, size / factor, size / factor, 0, 0, size, size)
+  ctx.drawImage(work.canvas, padding, padding, size / factor, size / factor, 0, 0, size, size)
 }

@@ -59,6 +59,25 @@ export function radToDeg(radians: number): number {
 }
 
 /** Formats a length held in metres for display, e.g. formatLength(0.15, 'cm', 1) -> "15.0 cm". */
+/** A power in dioptres with its sign, as on a prescription: +1.50 D, −2.00 D, 0.00 D. */
+export function formatDioptres(value: number, digits = 2): string {
+  const rounded = Number(value.toFixed(digits))
+  return `${rounded > 0 ? '+' : rounded < 0 ? '−' : ''}${formatNumber(Math.abs(rounded), digits)} D`
+}
+
+/** An axis or a meridian in whole degrees from 1 to 180, the way a prescription writes it. */
+export function formatAxis(radians: number): string {
+  const degrees = Math.round(radToDeg(radians)) % 180
+  return `${degrees <= 0 ? degrees + 180 : degrees}°`
+}
+
+/** Sphere / cylinder × axis; the sphere alone when there is no cylinder. */
+export function formatPrescription(lens: { sphere: number; cylinder: number; axis: number }, digits = 2): string {
+  const number = (value: number) => formatDioptres(value, digits).replace(' D', '')
+  if (Math.abs(lens.cylinder) < 0.5 * 10 ** -digits) return formatDioptres(lens.sphere, digits)
+  return `${number(lens.sphere)} / ${number(lens.cylinder)} × ${formatAxis(lens.axis)}`
+}
+
 export function formatLength(meters: number, unit: LengthUnit, digits = 1): string {
   if (!Number.isFinite(meters)) return meters > 0 ? '+∞' : meters < 0 ? '−∞' : '—'
   return `${formatNumber(fromMeters(meters, unit), digits)} ${UNIT_LABELS[unit]}`

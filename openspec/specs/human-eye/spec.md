@@ -71,7 +71,7 @@ The system SHALL report the refractive error K as the vergence at the cornea of 
 - **THEN** the eye has the normal length and cornea and an age at which the near point lies beyond 40 cm
 
 ### Requirement: Blur on the retina follows from the pupil and the defocus
-The system SHALL compute the blur-disc diameter on the retina as twice the height at the retina of the ray from the axial object point through the edge of the pupil, and SHALL show the test chart at its retinal size, convolved with a uniform disc of that diameter.
+For an eye with a symmetric cornea, in light of one wavelength and traced paraxially, the system SHALL compute the blur-disc diameter on the retina as twice the height at the retina of the ray from the axial object point through the edge of the pupil, and SHALL show the test chart at its retinal size, convolved with a uniform disc of that diameter.
 
 #### Scenario: Out of focus
 - **WHEN** a normal eye with no accommodation left and a 4 mm pupil looks at an object 25 cm away
@@ -128,7 +128,8 @@ The system SHALL offer the experiments "Accommodation and the near point", "Myop
 
 #### Scenario: Limits are stated
 - **WHEN** an eye experiment's guide is opened
-- **THEN** it lists that astigmatism, aberrations, diffraction at the pupil and the processing by the retina and brain are not modelled
+- **THEN** it lists that off-axis aberrations, irregular astigmatism, diffraction at the pupil and the processing by the retina and brain are not modelled
+- **AND** it says which of astigmatism, chromatic aberration and spherical aberration are switched off in that experiment
 
 ### Requirement: Two ages can be compared
 The system SHALL let the student add a second eye that differs from the first only in age, looking at the same object through the same glasses, and SHALL show both images and both sets of measurements.
@@ -136,3 +137,14 @@ The system SHALL let the student add a second eye that differs from the first on
 #### Scenario: Young and old at reading distance
 - **WHEN** eyes of age 20 and 60 with normal length look at an object 40 cm away without glasses
 - **THEN** the image of the younger eye is sharp and that of the older eye is blurred, and both far-distance images are sharp
+
+### Requirement: The sharpness grade uses one measure of blur for every eye
+The system SHALL grade the sharpness from the equivalent blur diameter, 2√2 times the root-mean-square radius of the light of one object point on the retina, weighted by luminance in white light. For a uniform disc this SHALL be the disc's diameter.
+
+#### Scenario: Symmetric eye
+- **WHEN** the blur is a uniform disc of 295 µm
+- **THEN** the equivalent blur diameter is 295 µm and the grade is the one of the symmetric eye
+
+#### Scenario: A line
+- **WHEN** the blur is a line 150 µm long
+- **THEN** the equivalent blur diameter is 106 µm

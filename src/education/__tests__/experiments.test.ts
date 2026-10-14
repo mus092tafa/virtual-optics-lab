@@ -46,8 +46,8 @@ function analyze(id: ExperimentId, values: Record<string, number>, context: Anal
 describe('experiment catalogue', () => {
   const ids = EXPERIMENTS.map((entry) => entry.id)
 
-  it('numbers the experiments 1…19 without gaps or duplicates', () => {
-    expect(EXPERIMENTS.map((entry) => entry.number)).toEqual(Array.from({ length: 19 }, (_, i) => i + 1))
+  it('numbers the experiments 1…22 without gaps or duplicates', () => {
+    expect(EXPERIMENTS.map((entry) => entry.number)).toEqual(Array.from({ length: 22 }, (_, i) => i + 1))
     expect(new Set(ids).size).toBe(ids.length)
   })
 
@@ -350,8 +350,94 @@ describe('the eye', () => {
     return { setting, solution, context }
   }
 
-  it('has its own topic with three experiments', () => {
-    expect(TOPICS.find((topic) => topic.id === 'eye')!.experiments).toEqual(['eye-accommodation', 'eye-glasses', 'eye-ageing'])
+  it('has its own topic with six experiments', () => {
+    expect(TOPICS.find((topic) => topic.id === 'eye')!.experiments).toEqual(['eye-accommodation', 'eye-glasses', 'eye-ageing', 'eye-astigmatism', 'eye-chromatic', 'eye-spherical'])
+  })
+
+  it('leaves the three aberrations off in the first three experiments', () => {
+    for (const id of ['eye-accommodation', 'eye-glasses', 'eye-ageing'] as const) {
+      const { solution } = eye(id)
+      expect(solution.astigmatic, id).toBe(false)
+      expect(solution.chromaticDifference, id).toBeNull()
+      expect(solution.realRays, id).toBe(false)
+      expect(solution.view.pointSpread.length, id).toBe(1)
+      expect(experiment(id).assumptions.join(' '), id).toMatch(/Switched off in this experiment: astigmatism of the cornea, chromatic aberration and spherical aberration/)
+    }
+  })
+
+  it('returns the refraction of the astigmatic eye from the cylinder lens that corrects it', () => {
+    const { solution, context } = eye('eye-astigmatism')
+    expect(solution.refraction.cylinder).toBeCloseTo(-2, 6)
+    expect(solution.view.sharpness).not.toBe('sharp')
+    const lens = solution.correctingLens
+    const [sphere, cylinder, axis] = analyze('eye-astigmatism', { sphere: lens.sphere, cylinder: lens.cylinder, axis: 180 }, context)
+    expect(sphere.value).toBeCloseTo(0, 9)
+    expect(cylinder.value).toBeCloseTo(-2, 9)
+    expect(cylinder.theory).toBeCloseTo(-2, 9)
+    expect(axis.value).toBe(180)
+    expect(axis.theory).toBe(180)
+    // The stock lens 0.00 / −2.00 × 180 corrects 1.95 D at the cornea, and axis 0 is axis 180.
+    const stock = analyze('eye-astigmatism', { sphere: 0, cylinder: -2, axis: 0 }, context)
+    expect(stock[1].value).toBeCloseTo(-1.95, 2)
+    expect(stock[2].value).toBe(180)
+    // The same lens written with a positive cylinder: −2.00 / +2.00 × 90.
+    const transposed = analyze('eye-astigmatism', { sphere: -2, cylinder: 2, axis: 90 }, context)
+    expect(transposed[1].value).toBeCloseTo(-1.95, 2)
+    expect(transposed[2].value).toBe(180)
+    // With the correcting lens on, the fan is sharp.
+    const worn = eye('eye-astigmatism', { glassesOn: true, glassesPower: lens.sphere, glassesCylinder: lens.cylinder, glassesAxis: lens.axis })
+    expect(worn.solution.view.blurDiameter).toBeCloseTo(0, 9)
+  })
+
+  it('returns the chromatic difference of refraction from the glasses found in blue and in red light', () => {
+    const { solution, context } = eye('eye-chromatic')
+    expect(solution.chromaticDifference).toBeCloseTo(0.847, 2)
+    // The lenses that correct each colour exactly return the model's difference.
+    const blue = eye('eye-chromatic', { wavelength: 486e-9 }).solution
+    const red = eye('eye-chromatic', { wavelength: 656e-9 }).solution
+    expect(blue.refractiveError).toBeCloseTo(-0.605, 2)
+    const [exact] = analyze('eye-chromatic', { blue: blue.correctingPower, red: red.correctingPower }, context)
+    expect(exact.value).toBeCloseTo(exact.theory!, 9)
+    // Stock lenses of −0.50 and +0.25 D give 0.75 D.
+    expect(analyze('eye-chromatic', { blue: -0.5, red: 0.25 }, context)[0].value).toBeCloseTo(0.75, 2)
+    // Each colour is sharp through its own lens and not through the other's.
+    const sharpIn = (wavelength: number, power: number) => eye('eye-chromatic', { wavelength, glassesOn: true, glassesPower: power }).solution.view.blurDiameter
+    expect(sharpIn(486e-9, blue.correctingPower)).toBeCloseTo(0, 9)
+    expect(sharpIn(486e-9, red.correctingPower)).toBeGreaterThan(50e-6)
+  })
+
+  it('returns the spherical aberration of a zone from the glasses found through the ring and at the centre', () => {
+    const { solution, context } = eye('eye-spherical', { pupilZone: 0.9 })
+    expect(solution.realRays).toBe(true)
+    // A 6 mm pupil with the inner 90% stopped: a ring from 2.70 to 3.00 mm, h = 2.85 mm.
+    const aberration = solution.view.sphericalAberration!
+    expect(aberration.rayHeight * 1e3).toBeCloseTo(2.854, 3)
+    // The lens that corrects the zone, against no lens for the centre, returns the model's aberration for that zone.
+    const zoneLens = aberration.zoneRefraction / (1 + 0.012 * aberration.zoneRefraction)
+    const [exact] = analyze('eye-spherical', { height: 2.854, ring: zoneLens, centre: 0 }, context)
+    expect(exact.value).toBeCloseTo(exact.theory!, 2)
+    expect(exact.theory).toBeCloseTo(aberration.longitudinal, 2)
+    // Through the ring that lens gives a far sharper image than no lens or the paraxial one.
+    const blur = (power: number) => eye('eye-spherical', { pupilZone: 0.9, glassesOn: true, glassesPower: power }).solution.view.blurDiameter
+    expect(blur(zoneLens)).toBeLessThan(blur(0) / 10)
+    // With paraxial rays there is nothing to compare with.
+    expect(analyze('eye-spherical', { height: 2.85, ring: -1, centre: 0 }, eye('eye-spherical', { realRays: false }).context)[0].theory).toBeNull()
+  })
+
+  it('finds the aberration growing as the square of the zone radius', () => {
+    const definition = experiment('eye-spherical')
+    const average = { cornealAsphericity: -0.26, lensAsphericity: -2.203 }
+    const { context } = eye('eye-spherical', average)
+    const rows = [1, 1.5, 2, 2.5].map((height, index) => {
+      const zone = eye('eye-spherical', { ...average, pupilDiameter: 2 * height * 1e-3 }).solution.view.sphericalAberration!
+      const values = { height, ring: zone.zoneRefraction / (1 + 0.012 * zone.zoneRefraction), centre: 0 }
+      const results = analyzeMeasurement(definition, values, defaultUncertainties(definition), context)
+      return { id: String(index), values, uncertainties: defaultUncertainties(definition), results }
+    })
+    const fitted = fitRows(definition, rows, context)!
+    // 0.12 D at 1 mm and 0.84 D at 2.5 mm: a slope of about 0.13 D/mm², a little above the coefficient near the axis.
+    expect(fitted.results[0].value).toBeCloseTo(0.135, 2)
+    expect(fitted.results[0].theory).toBeCloseTo(0.122, 2)
   })
 
   it('starts each experiment with an image the student can work from', () => {

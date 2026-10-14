@@ -7,7 +7,7 @@ import { apertureFromDarkRing } from '../physics/airy'
 import { laserLine } from '../physics/constants'
 import { slitWidthFromCentralMaximum } from '../physics/diffraction'
 import { DEFAULT_VERTEX_DISTANCE } from '../physics/constants'
-import { maxAccommodation } from '../physics/eye'
+import { averageLensAsphericity, longitudinalAberration, maxAccommodation } from '../physics/eye'
 import type { EyeSolution } from '../physics/eye'
 import { wavelengthFromOrder } from '../physics/grating'
 import { wavelengthFromFringeSpacing } from '../physics/interference'
@@ -18,7 +18,7 @@ import type { BenchSolution } from '../physics/optics'
 import { malusTransmission } from '../physics/polarization'
 import { indexFromMinimumDeviation } from '../physics/prism'
 import { indexFromAngles, indexFromBrewsterAngle } from '../physics/refraction'
-import { objectVergence, vergenceAtCornea } from '../physics/spectacles'
+import { objectVergence, refractionFromLens, refractiveErrorFromPower, vergenceAtCornea } from '../physics/spectacles'
 import type { SurfaceSolution } from '../physics/surface'
 import type { BenchComponent } from '../physics/types'
 import { cm, degToRad, formatNumber, fromMeters, mm, perMm, radToDeg, toPerMm, um } from '../physics/units'
@@ -176,14 +176,23 @@ const FRAUNHOFER_ASSUMPTIONS = [
   'The lab reports N_F and warns when the far-field condition fails; a Fresnel model is available.',
 ]
 
+const EYE_LIMITS = 'Not modelled: aberrations of objects off the axis, irregular astigmatism, diffraction at the pupil, and the processing of the image by the retina and the brain.'
+
 const EYE_ASSUMPTIONS = [
   'Schematic eye (Gullstrand–Emsley): one corneal surface and a lens with two, in paraxial optics.',
   'Curvatures are set and powers follow from them: P = (n′ − n)/r for each surface.',
   'The eye accommodates by itself as far as its age allows; the largest accommodation is Hofstetter’s population average, 18.5 − 0.30 × age dioptres, and individual eyes differ from it by several dioptres.',
   'Blur is the geometric blur disc of the pupil: it is reliable from about 0.25 D of defocus upward.',
   'The sharpness grade compares the blur disc with the stroke width of the letters; it is not a measurement of visual acuity.',
-  'Not modelled: astigmatism, spherical and chromatic aberration, diffraction at the pupil, and the processing of the image by the retina and the brain.',
+  'Switched off in this experiment: astigmatism of the cornea, chromatic aberration and spherical aberration. Each has an experiment of its own (20 to 22).',
+  EYE_LIMITS,
 ]
+
+/** A direction in degrees from 1 to 180, as an axis is written. */
+const axisDegrees = (radians: number): number => {
+  const degrees = ((radToDeg(radians) % 180) + 180) % 180
+  return degrees < 0.5 ? 180 : degrees
+}
 
 /** Vertex distance of the glasses on the eye (the usual 12 mm when none are worn). */
 function vertexDistanceOf(context: AnalysisContext): number {
@@ -860,6 +869,135 @@ export const EXPERIMENTS: readonly ExperimentDefinition[] = [
     },
     given: () => [],
     analyze: (values) => [perSetting(result('A = 1/near point', vergenceOfCm(values.near), 'D', maxAccommodation(values.age), 2))],
+  },
+  {
+    id: 'eye-astigmatism',
+    number: 20,
+    title: 'The Eye — Astigmatism and the Cylinder Lens',
+    short: 'Astigmatism',
+    goal: 'See why an eye whose cornea is curved differently in two directions has no sharp focus, find the direction with the fan chart, and correct it with a cylinder lens.',
+    procedure: [
+      'The cornea is steeper vertically than horizontally. Compare the side view and the top view: each meridian has its own focus, so a point is imaged as two lines (the conoid of Sturm). The beam cross-sections show the lines and the circle between them.',
+      'Look at the fan chart. One line is sharp: it lies along the focal line that falls on the retina. Its label is a meridian in degrees, as an examiner facing the eye counts them.',
+      'Put on the glasses and add a negative cylinder. Set its axis to the meridian of the sharp line, at right angles to the most blurred one, and increase the cylinder until every line of the fan is equally sharp.',
+      'Refine the axis: turn it a few degrees either way and keep the setting with the sharpest fan. Then adjust the sphere if every line is equally blurred.',
+      'Record sphere, cylinder and axis. The notebook converts the lens into the refraction of the eye at the cornea.',
+      'Turn the cornea with "Meridian" and repeat. The front view shows the meridians of the cornea and the axis of the lens. In experiment mode, try "Use an unknown eye".',
+    ],
+    equations: ['P₁ = (n′ − 1) / r₁     P₂ = (n′ − 1) / r₂', 'F = S·1 + C·[sin²a, −sin a cos a; −sin a cos a, cos²a]', 'K = F (1 − d F)⁻¹   (each principal meridian: K = F/(1 − dF))', 'Spherical equivalent = S + C/2'],
+    assumptions: [
+      'Schematic eye (Gullstrand–Emsley) with a toric cornea: two radii at right angles. The lens of the eye has no astigmatism.',
+      'Paraxial rays in both meridians; a system of cylinders at any angles is traced with 2 × 2 matrices in place of numbers.',
+      'The glasses are a thin sphere and cylinder at the vertex distance, centred on the axis of the eye.',
+      'The blur of a point is the ellipse the pupil is imaged into; the eye accommodates for the middle of its two meridians.',
+      'Angles are those seen by an examiner facing the eye, counter-clockwise from the horizontal. The image panel shows what the eye sees, and the labels of the fan are meridians in the examiner’s count.',
+      'In the side and top views, rays of an oblique eye leave the plane of the drawing and are shown as projections; the cross-sections are exact.',
+      'Switched off in this experiment: chromatic and spherical aberration.',
+      EYE_LIMITS,
+    ],
+    fields: [
+      { key: 'sphere', label: 'sphere S', unit: 'D', hint: 'sphere of the glasses', uncertainty: 0.25 },
+      { key: 'cylinder', label: 'cylinder C', unit: 'D', hint: 'cylinder of the glasses', uncertainty: 0.25 },
+      { key: 'axis', label: 'axis', unit: '°', hint: 'axis of the cylinder, 0 to 180', uncertainty: 5 },
+    ],
+    given: (context) => [{ label: 'Vertex distance d', value: `${fromMeters(vertexDistanceOf(context), 'mm').toFixed(0)} mm` }, { label: 'Object', value: 'distant' }],
+    analyze: (values, context) => {
+      const found = refractionFromLens({ sphere: values.sphere, cylinder: values.cylinder, axis: degToRad(values.axis) }, vertexDistanceOf(context))
+      const eye = context.eye?.refraction ?? null
+      return [
+        result('K sphere = S / (1 − d S)', found.sphere, 'D', eye?.sphere ?? null, 2),
+        result('K cylinder', found.cylinder, 'D', eye?.cylinder ?? null, 2),
+        result('axis', axisDegrees(found.axis), '°', eye ? axisDegrees(eye.axis) : null, 0),
+      ]
+    },
+  },
+  {
+    id: 'eye-chromatic',
+    number: 21,
+    title: 'The Eye — Chromatic Aberration',
+    short: 'Chromatic',
+    goal: 'Show that the eye focuses blue light in front of red light, and measure the difference in dioptres.',
+    procedure: [
+      'The chart is lit with white light and the eye is held relaxed. Look at the edges of the letters: they are coloured, because each wavelength has its own focus and so its own blur.',
+      'Reduce the pupil: the coloured edges shrink with it. Open it again.',
+      'Set the light to one wavelength, 486 nm (blue). The eye is short-sighted in blue light. Put on the glasses and find the power that makes the chart sharpest.',
+      'Set the light to 656 nm (red) and find the sharpest power again. The lens is held relaxed, so a positive lens is not hidden by accommodation.',
+      'Record both powers; the notebook gives the chromatic difference of refraction between the two wavelengths.',
+      'Repeat at other wavelengths and see that 589 nm needs no lens: the schematic eye’s indices are those of yellow light.',
+    ],
+    equations: ['n(λ) = 1.320535 + 0.004685 / (λ − 0.214102 µm)', 'n_medium(λ) − 1 = (n₅₈₉ − 1) · (n(λ) − 1) / (n(589 nm) − 1)', 'K = Fs / (1 − d Fs)', 'ΔK = K(656 nm) − K(486 nm)'],
+    assumptions: [
+      'Schematic eye (Gullstrand–Emsley) in paraxial optics, with its indices taken to hold at 589 nm.',
+      'Every medium of the eye is given the dispersion of the chromatic eye of Thibos and co-workers (1992). The model then has 0.85 D between 486 and 656 nm, about 5% less than their measured 0.90 D.',
+      'White light is a black body of 6500 K in twelve bands; the white of the chart is shown as the white of the display. In white light the eye is taken to focus 589 nm.',
+      'The difference of image size between colours is neglected (below 1% of the distance from the axis). The glasses have no chromatic aberration.',
+      'Switched off in this experiment: astigmatism and spherical aberration.',
+      EYE_LIMITS,
+    ],
+    fields: [
+      { key: 'blue', label: 'Fs at 486 nm', unit: 'D', hint: 'sharpest glasses in blue light', uncertainty: 0.25 },
+      { key: 'red', label: 'Fs at 656 nm', unit: 'D', hint: 'sharpest glasses in red light', uncertainty: 0.25 },
+    ],
+    given: (context) => [{ label: 'Vertex distance d', value: `${fromMeters(vertexDistanceOf(context), 'mm').toFixed(0)} mm` }, { label: 'Object', value: 'distant' }],
+    analyze: (values, context) => {
+      const vertexDistance = vertexDistanceOf(context)
+      const difference = refractiveErrorFromPower(values.red, vertexDistance) - refractiveErrorFromPower(values.blue, vertexDistance)
+      return [result('ΔK = K(656 nm) − K(486 nm)', difference, 'D', context.eye?.chromaticDifference ?? null, 2)]
+    },
+  },
+  {
+    id: 'eye-spherical',
+    number: 22,
+    title: 'The Eye — Spherical Aberration and the Pupil',
+    short: 'Spherical',
+    goal: 'See that rays through the edge of the pupil are focused in front of rays near the axis, and measure by how many dioptres, zone by zone.',
+    procedure: [
+      'Real rays are traced: Snell’s law at every surface, without the small-angle approximation. The rays through the edge of the pupil cross the axis in front of the retina although the eye is in paraxial focus.',
+      'Change the pupil and watch the image blur with no change of focus. The beam cross-sections show where the beam is narrowest: in front of the retina.',
+      'Close the pupil to 2 mm, put on the glasses and find the power that gives the sharpest chart. Only rays near the axis pass, so this lens corrects the centre of the pupil.',
+      'Open the pupil to 6 mm and close the ring stop to 0.9, so that only a narrow outer ring is open. All its rays cross the axis at nearly one point, so one lens gives a sharp image: find it. The control shows the radius h of the ring.',
+      'Record h and both lenses. The notebook gives the spherical aberration of that zone, the difference of the two refractions.',
+      'Repeat with other pupil diameters, keeping the ring narrow: its radius h follows the pupil. The graph of the aberration against h² is nearly a straight line through the origin.',
+      'Choose "Average eye": the cornea flattens towards its edge (Q = −0.26) and the lens is aspheric too. Repeat and compare. Then switch the real rays off: the paraxial image does not depend on the shape of the surfaces.',
+    ],
+    equations: ['n sin i = n′ sin i′   (at each surface)', 'c (y² + (1 + Q) s²) − 2 s = 0   (surface with vertex curvature c)', 'Q = −(n/n′)²: no spherical aberration for a distant point', 'Aberration(h) = K(centre) − K(h),   K = Fs / (1 − d Fs)', 'Aberration ≈ a h²   (third order)'],
+    assumptions: [
+      'Schematic eye (Gullstrand–Emsley) with surfaces that are conicoids of revolution, traced with real meridional rays. With Q = 0 the surfaces are the spheres of the schematic eye, which has several times the spherical aberration of a real eye.',
+      `"Average eye": cornea Q = −0.26 (measured mean) and one Q for both lens surfaces, ${formatNumber(averageLensAsphericity(), 2)}, solved so that a distant ray entering 3 mm from the axis has the mean measured aberration of 1.0 D. It stands in for the gradient index of the real lens.`,
+      'The ring stop lies in the pupil and lets one zone through; h is the root-mean-square radius of the open ring. With an open pupil, or a wide ring, the lens that looks sharpest depends on what is looked at, which is why the measurement is made with a narrow ring. The 2 mm pupil that stands for the centre still has a little aberration of its own, which makes the result slightly too small.',
+      'The eye still accommodates for its paraxial focus; here the lens is held relaxed. The glasses are an ideal thin lens.',
+      'The light of a point on the retina is found from rays spread evenly over the open area of the pupil; the blur quoted is 2√2 times its root-mean-square radius. Rays that miss a surface are reported and left out.',
+      'Real rays are traced only in an eye with one corneal radius and glasses without a cylinder.',
+      'Switched off in this experiment: astigmatism and chromatic aberration.',
+      EYE_LIMITS,
+    ],
+    fields: [
+      { key: 'height', label: 'h', unit: 'mm', hint: 'radius of the open ring', uncertainty: 0.1 },
+      { key: 'ring', label: 'Fs with the ring', unit: 'D', hint: 'sharpest glasses through the ring', uncertainty: 0.25 },
+      { key: 'centre', label: 'Fs at 2 mm', unit: 'D', hint: 'sharpest glasses with the open 2 mm pupil', uncertainty: 0.25 },
+    ],
+    plot: {
+      xLabel: 'h² (mm²)',
+      yLabel: 'aberration K(centre) − K(h) (D)',
+      relation: 'third order: aberration = a h², a straight line through the origin; higher orders bend it upwards for wide rings',
+      point: (values, context) =>
+        values.height > 0 ? { x: values.height * values.height, y: refractiveErrorFromPower(values.centre, vertexDistanceOf(context)) - refractiveErrorFromPower(values.ring, vertexDistanceOf(context)) } : null,
+      interpret: (fit, context) => {
+        const eye = context.eye
+        // The model's coefficient near the axis, where the third order alone counts.
+        const near = eye?.realRays ? longitudinalAberration(eye.setup, mm(1), eye.view.lensState) : null
+        return [scaled('a (slope)', fit.slope, fit.slopeError, 'D/mm²', near, 3)]
+      },
+    },
+    given: (context) => [{ label: 'Vertex distance d', value: `${fromMeters(vertexDistanceOf(context), 'mm').toFixed(0)} mm` }, { label: 'Object', value: 'distant' }],
+    analyze: (values, context) => {
+      const vertexDistance = vertexDistanceOf(context)
+      const aberration = refractiveErrorFromPower(values.centre, vertexDistance) - refractiveErrorFromPower(values.ring, vertexDistance)
+      const eye = context.eye
+      // The model's aberration exists only while real rays are traced.
+      const theory = eye?.realRays && values.height > 0 ? longitudinalAberration(eye.setup, mm(values.height), eye.view.lensState) : null
+      return [perSetting(result('Aberration = K(centre) − K(h)', aberration, 'D', theory, 2))]
+    },
   },
 ]
 

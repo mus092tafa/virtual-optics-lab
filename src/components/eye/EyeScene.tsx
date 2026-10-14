@@ -1,8 +1,8 @@
 import { useRef } from 'react'
 import { EYE, EYE_ANATOMY } from '../../physics/constants'
-import { NORMAL_AXIAL_LENGTH, lensEdgeHeight, surfaceSag } from '../../physics/eye'
-import type { EyeSetup, EyeView, RayPoint } from '../../physics/eye'
-import { formatLength, formatNumber, mm } from '../../physics/units'
+import { NORMAL_AXIAL_LENGTH, conicSag, extentAlong, lensEdgeHeight, sectionRadius } from '../../physics/eye'
+import type { EyeSection, EyeSetup, EyeView, FocalLine, RayPoint } from '../../physics/eye'
+import { formatAxis, formatLength, formatPrescription, mm } from '../../physics/units'
 import { useElementSize } from '../hooks'
 
 interface Props {
@@ -15,6 +15,17 @@ interface Props {
    * standard dimensions and labelled as not to scale.
    */
   unknown: boolean
+  /** The vertical section, seen from the side, or the horizontal one, seen from above. */
+  section?: EyeSection
+  /** Name the section on the drawing: wanted when both are shown. */
+  titled?: boolean
+}
+
+/** Whether a focal line lies in the plane of a drawing, across it, or at an angle to both. */
+function lineDirection(line: FocalLine): string {
+  if (Math.abs(Math.sin(line.angle)) < 0.02) return 'horizontal line'
+  if (Math.abs(Math.cos(line.angle)) < 0.02) return 'vertical line'
+  return `line at ${formatAxis(line.angle)}`
 }
 
 /** The part of the axis that is drawn, from in front of the glasses to behind the retina. */
@@ -23,9 +34,9 @@ const X_MAX = mm(33)
 const HALF_HEIGHT = mm(13.6)
 const SAMPLES = 24
 
-/** Side view of the schematic eye. Every surface, the pupil, the retina and the rays come from the eye solver. */
-export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
-  const setup = unknown ? { ...actual, axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius } : actual
+/** A section of the schematic eye through its axis. Every surface, the pupil, the retina and the rays come from the eye solver. */
+export function EyeScene({ setup: actual, view, showLight, unknown, section = 'side', titled = false }: Props) {
+  const setup = unknown ? { ...actual, axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius, cornealRadiusCross: null, cornealAsphericity: 0, lensAsphericity: 0 } : actual
   const containerRef = useRef<HTMLDivElement>(null)
   const { width, height } = useElementSize(containerRef)
   if (width === 0 || height === 0) return <div className="surface-scene eye-scene" ref={containerRef} />
@@ -44,19 +55,25 @@ export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
   const { corneaHalfHeight, globeHalfHeight, glassesHalfHeight } = EYE_ANATOMY
   const lensFront = lens.chamberDepth
   const lensBack = lens.chamberDepth + lens.thickness
-  const edge = lensEdgeHeight(lens)
+  const lensShape = setup.lensAsphericity ?? 0
+  const edge = lensEdgeHeight(lens, lensShape)
+  // The cornea of this section: its radius in this plane and its asphericity.
+  const cornealRadius = sectionRadius(setup, section)
+  const corneaSag = (y: number) => conicSag(cornealRadius, setup.cornealAsphericity ?? 0, y)
+  const frontSag = (y: number) => conicSag(lens.frontRadius, lensShape, y)
+  const backSag = (y: number) => conicSag(lens.backRadius, lensShape, y)
 
-  // Surfaces of the model, drawn from their radii.
-  const cornea = heights(corneaHalfHeight).map((y) => ({ x: surfaceSag(setup.cornealRadius, y), y }))
+  // Surfaces of the model, drawn from their radii and shapes.
+  const cornea = heights(corneaHalfHeight).map((y) => ({ x: corneaSag(y), y }))
   const lensOutline = [
-    ...heights(edge).map((y) => ({ x: lensFront + surfaceSag(lens.frontRadius, y), y })),
+    ...heights(edge).map((y) => ({ x: lensFront + frontSag(y), y })),
     ...heights(edge)
       .reverse()
-      .map((y) => ({ x: lensBack - surfaceSag(lens.backRadius, y), y })),
+      .map((y) => ({ x: lensBack - backSag(y), y })),
   ]
 
   // The eyeball is anatomy: an ellipse from the edge of the cornea to the retina, which lies at the model's axial length.
-  const limbus = surfaceSag(setup.cornealRadius, corneaHalfHeight)
+  const limbus = corneaSag(corneaHalfHeight)
   const reach = Math.sqrt(1 - (corneaHalfHeight / globeHalfHeight) ** 2)
   const semiAxis = (setup.axialLength - limbus) / (1 + reach)
   const centre = setup.axialLength - semiAxis
@@ -70,12 +87,12 @@ export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
   // Rays are bent where they meet the drawn surfaces; their heights are the solver's.
   const surfaceX = [
     ...(glasses ? [(p: RayPoint) => p.x] : []),
-    (p: RayPoint) => surfaceSag(setup.cornealRadius, p.y),
-    (p: RayPoint) => lensFront + surfaceSag(lens.frontRadius, p.y),
-    (p: RayPoint) => lensBack - surfaceSag(lens.backRadius, p.y),
+    (p: RayPoint) => corneaSag(p.y),
+    (p: RayPoint) => lensFront + frontSag(p.y),
+    (p: RayPoint) => lensBack - backSag(p.y),
   ]
   const corneaIndex = glasses ? 2 : 1
-  const rays = view.rays.map((ray) => {
+  const rays = (section === 'side' ? view.rays : view.raysTop).map((ray) => {
     const first = ray[0]
     const second = ray[1]
     const slope = (second.y - first.y) / (second.x - first.x)
@@ -84,16 +101,29 @@ export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
     const last = inside[inside.length - 1]
     const end = ray[ray.length - 1]
     const along = (x: number) => ({ x, y: last.y + ((end.y - last.y) * (x - last.x)) / (end.x - last.x) })
-    return { entering, toRetina: [...inside, along(setup.axialLength)], beyond: end.x > setup.axialLength + 1e-9 ? [along(setup.axialLength), end] : null }
+    return { axial: ray.every((p) => Math.abs(p.y) < 1e-12), entering, toRetina: [...inside, along(setup.axialLength)], beyond: end.x > setup.axialLength + 1e-9 ? [along(setup.axialLength), end] : null }
   })
-  const focus = view.focusDistance
-  const blurTop = view.blurDiameter / 2
+  // Where the light comes to a focus: one point, or the two focal lines of an astigmatic beam.
+  const lines = view.focalLines
+  const split = lines !== null && lines[1].distance - lines[0].distance > 1e-6
+  const marks: { x: number; label: string }[] = !lines
+    ? []
+    : split
+      ? lines.map((line) => ({ x: line.distance, label: lineDirection(line) }))
+      : [{ x: lines[0].distance, label: view.sphericalAberration ? 'paraxial focus' : 'focus' }]
+  const marginal = view.sphericalAberration?.marginalOffset
+  if (marginal != null) marks.push({ x: setup.axialLength + marginal, label: view.sphericalAberration!.rayHeight < setup.pupilDiameter / 2 ? 'ring rays cross' : 'edge rays cross' })
+  const retinaPatch = view.sections.find((entry) => entry.atRetina)
+  const blurTop = retinaPatch ? extentAlong(retinaPatch.shape, section) : 0
   const pupil = setup.pupilDiameter / 2
-  const bulge = glasses ? Math.sign(glasses.power) * mm(0.5 + 0.12 * Math.abs(glasses.power)) : 0
+  // The lens is drawn for the power it has in this section: sphere plus the cylinder's share.
+  const across = glasses ? Math.sin((section === 'side' ? Math.PI / 2 : 0) - (glasses.axis ?? 0)) ** 2 : 0
+  const sectionPower = glasses ? glasses.power + (glasses.cylinder ?? 0) * across : 0
+  const bulge = glasses ? Math.sign(sectionPower) * mm(0.5 + 0.12 * Math.abs(sectionPower)) : 0
 
   return (
     <div className="surface-scene eye-scene" ref={containerRef}>
-      <svg width={width} height={height} role="img" aria-label="Side view of the eye with the rays from the object">
+      <svg width={width} height={height} role="img" aria-label={`${section === 'side' ? 'Side' : 'Top'} view of the eye with the rays from the object`}>
         <line x1={0} x2={width} y1={py(0)} y2={py(0)} className="eye-axis" />
 
         <path d={path(globe)} className="eye-globe" />
@@ -103,7 +133,7 @@ export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
         {/* Ciliary muscle and zonule: anatomy only. They follow the lens but carry no calculation. */}
         {[1, -1].map((side) => {
           const anchor = { x: lensFront + lens.thickness / 2, y: side * (globeHalfHeight - mm(3.2)) }
-          const rim = { x: lensFront + surfaceSag(lens.frontRadius, edge), y: side * edge }
+          const rim = { x: lensFront + frontSag(edge), y: side * edge }
           return (
             <g key={side} className="eye-anatomy">
               <line x1={px(rim.x)} y1={py(rim.y)} x2={px(anchor.x)} y2={py(anchor.y)} />
@@ -116,6 +146,8 @@ export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
           <line key={side} x1={px(lensFront)} x2={px(lensFront)} y1={py(side * pupil)} y2={py(side * corneaHalfHeight)} className="eye-iris" />
         ))}
         <path d={path(lensOutline, true)} className="eye-lens" />
+        {/* A ring stop covers the middle of the pupil. */}
+        {setup.realRays && (setup.pupilZone ?? 0) > 0 && <line x1={px(lensFront)} x2={px(lensFront)} y1={py(pupil * setup.pupilZone!)} y2={py(-pupil * setup.pupilZone!)} className="eye-iris stop" />}
 
         {glasses && (
           <path
@@ -133,32 +165,43 @@ export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
         )}
 
         {rays.map((ray, index) => (
-          <g key={index} className={`eye-ray${index === 1 ? ' axial' : ''}`}>
+          <g key={index} className={`eye-ray${ray.axial ? ' axial' : ''}`}>
             <path d={path(ray.entering)} />
             {showLight && <path d={path(ray.toRetina)} />}
             {showLight && ray.beyond && <path d={path(ray.beyond)} className="beyond" />}
           </g>
         ))}
 
-        {showLight && view.blurDiameter > 0 && (
-          <line x1={px(setup.axialLength)} x2={px(setup.axialLength)} y1={py(blurTop)} y2={py(-blurTop)} className="eye-blur" />
+        {showLight && blurTop > 0 && <line x1={px(setup.axialLength)} x2={px(setup.axialLength)} y1={py(blurTop)} y2={py(-blurTop)} className="eye-blur" />}
+        {showLight &&
+          marks.map((mark, index) =>
+            mark.x < X_MAX ? (
+              <g key={index}>
+                <circle cx={px(mark.x)} cy={py(0)} r={3.5} className="eye-focus" />
+                {/* Labels of neighbouring marks alternate below and above the axis. */}
+                <text x={px(mark.x)} y={py(0) + (index % 2 === 0 ? 18 : -10)} className="scene-label" textAnchor="middle">
+                  {mark.label}
+                </text>
+              </g>
+            ) : (
+              <text key={index} x={width - 8} y={py(0) + 18 + 14 * index} className="scene-label" textAnchor="end">
+                {mark.label} {formatLength(mark.x - setup.axialLength, 'mm', 1)} behind the retina →
+              </text>
+            ),
+          )}
+        {showLight && view.skew && (
+          <text x={width - 8} y={height - 10} className="scene-label faint" textAnchor="end">
+            oblique meridians: the rays leave this plane and are drawn as projections
+          </text>
         )}
-        {showLight && focus !== null && focus < X_MAX && (
-          <g>
-            <circle cx={px(focus)} cy={py(0)} r={3.5} className="eye-focus" />
-            <text x={px(focus)} y={py(0) + 18} className="scene-label" textAnchor="middle">
-              focus
-            </text>
-          </g>
-        )}
-        {showLight && focus !== null && focus >= X_MAX && (
-          <text x={width - 8} y={py(0) + 18} className="scene-label" textAnchor="end">
-            focus {formatLength(focus - setup.axialLength, 'mm', 1)} behind the retina →
+        {titled && (
+          <text x={10} y={16} className="scene-label">
+            {section === 'side' ? 'Side view — vertical section' : 'Top view — horizontal section'}
           </text>
         )}
 
-        <text x={px(surfaceSag(setup.cornealRadius, corneaHalfHeight))} y={py(corneaHalfHeight) - 8} className="scene-label" textAnchor="middle">
-          cornea
+        <text x={px(corneaSag(corneaHalfHeight))} y={py(corneaHalfHeight) - 8} className="scene-label" textAnchor="middle">
+          cornea{!unknown && setup.cornealRadiusCross != null ? ` r = ${formatLength(cornealRadius, 'mm', 2)}` : ''}
         </text>
         <text x={px(lensFront + lens.thickness / 2)} y={py(-edge) + 16} className="scene-label" textAnchor="middle">
           lens
@@ -182,8 +225,8 @@ export function EyeScene({ setup: actual, view, showLight, unknown }: Props) {
         </text>
         {glasses && (
           <text x={px(-glasses.vertexDistance)} y={py(glassesHalfHeight) - 8} className="scene-label" textAnchor="middle">
-            {glasses.power === 0 ? 'plain lens' : glasses.power < 0 ? 'diverging (concave) lens' : 'converging (convex) lens'} {glasses.power > 0 ? '+' : glasses.power < 0 ? '−' : ''}
-            {formatNumber(Math.abs(glasses.power), 2)} D
+            {glasses.cylinder ? 'sphere and cylinder' : glasses.power === 0 ? 'plain lens' : glasses.power < 0 ? 'diverging (concave) lens' : 'converging (convex) lens'}{' '}
+            {formatPrescription({ sphere: glasses.power, cylinder: glasses.cylinder ?? 0, axis: glasses.axis ?? 0 })}
           </text>
         )}
 

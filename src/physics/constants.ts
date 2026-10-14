@@ -124,6 +124,44 @@ export const EYE_ANATOMY = {
   glassesHalfHeight: mm(9),
 } as const
 
+/** Further ranges of the eye apparatus: the astigmatic cornea, cylinder glasses, the light and the surface shapes. */
+export const EYE_ABERRATION_RANGES = {
+  /** Dioptres. */
+  glassesCylinder: { min: -6, max: 6, step: 0.25 },
+  /** Wavelength of monochromatic light on the chart. */
+  wavelength: { min: nm(400), max: nm(700) },
+  cornealAsphericity: { min: -1, max: 0.5, step: 0.01 },
+  lensAsphericity: { min: -6, max: 1, step: 0.05 },
+  /** Inner radius of the ring stop as a fraction of the pupil's radius. */
+  pupilZone: { min: 0, max: 0.95, step: 0.05 },
+} as const
+
+/** Wavelength at which the schematic eye's indices hold (sodium D). */
+export const EYE_REFERENCE_WAVELENGTH = nm(589)
+/** The blue and red hydrogen lines between which the chromatic difference of refraction is quoted. */
+export const CHROMATIC_LINES = { blue: nm(486), red: nm(656) } as const
+/**
+ * Index of the chromatic eye, n(λ) = a + b/(λ − c) (L. N. Thibos, M. Ye, X. Zhang, A. Bradley, "The chromatic eye",
+ * Applied Optics 31, 3594, 1992). b and c in metres.
+ */
+export const CHROMATIC_EYE = { a: 1.320535, b: 0.004685e-6, c: 0.214102e-6 } as const
+/** Colour temperature of the white light on the chart. */
+export const EYE_WHITE_TEMPERATURE = 6500
+/** Spectral bands the white light is divided into. */
+export const EYE_WHITE_BANDS = 12
+
+/** Mean asphericity of the human cornea (P. M. Kiely, G. Smith, L. G. Carney, Optica Acta 29, 1027, 1982). */
+export const AVERAGE_CORNEAL_ASPHERICITY = -0.26
+/**
+ * Longitudinal spherical aberration of the average eye for a distant ray entering at the given height: 1.0 D at 3 mm,
+ * from the mean Z₄⁰ = 0.138 µm over a 5.7 mm pupil (J. Porter et al., J. Opt. Soc. Am. A 18, 1793, 2001).
+ */
+export const AVERAGE_SPHERICAL_ABERRATION = { longitudinal: 1, rayHeight: mm(3) } as const
+/** Zones of equal area the pupil is divided into when real rays are traced. */
+export const PUPIL_ZONES = 24
+/** Corneal astigmatism of the astigmatism condition, dioptres (the vertical meridian is the steeper one). */
+export const CONDITION_ASTIGMATISM = 2
+
 export const DEFAULT_VERTEX_DISTANCE = mm(12)
 /** A letter of a test chart is five strokes high. */
 export const LETTER_STROKES = 5

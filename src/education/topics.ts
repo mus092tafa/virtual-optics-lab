@@ -19,7 +19,7 @@ export const TOPICS: readonly Topic[] = [
   { id: 'beams', name: 'Laser Beams', experiments: ['hene-lens'] },
   { id: 'waves', name: 'Diffraction & Interference', experiments: ['single-slit', 'double-slit', 'grating', 'airy', 'michelson'] },
   { id: 'polarisation', name: 'Polarisation', experiments: ['malus'] },
-  { id: 'eye', name: 'The Eye', experiments: ['eye-accommodation', 'eye-glasses', 'eye-ageing'] },
+  { id: 'eye', name: 'The Eye', experiments: ['eye-accommodation', 'eye-glasses', 'eye-ageing', 'eye-astigmatism', 'eye-chromatic', 'eye-spherical'] },
 ]
 
 export function topicOf(id: ExperimentId): Topic {

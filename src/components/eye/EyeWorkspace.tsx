@@ -1,15 +1,17 @@
 import { useMemo } from 'react'
-import { EYE_RANGES } from '../../physics/constants'
-import { solveEye } from '../../physics/eye'
+import { AVERAGE_CORNEAL_ASPHERICITY, CHROMATIC_LINES, CONDITION_ASTIGMATISM, EYE_ABERRATION_RANGES, EYE_RANGES, EYE_REFERENCE_WAVELENGTH, EYE_WHITE_TEMPERATURE } from '../../physics/constants'
+import { averageLensAsphericity, solveEye, zoneHeight } from '../../physics/eye'
 import type { EyeSolution, EyeView } from '../../physics/eye'
-import { degToRad, formatLength, formatNumber, fromMeters, mm } from '../../physics/units'
+import { degToRad, formatAxis, formatDioptres, formatLength, formatNumber, formatPrescription, fromMeters, mm, nm, radToDeg } from '../../physics/units'
 import { actions, theoryVisible, useLab } from '../../state/labState'
 import { CONDITION_ERROR, PRESBYOPIA_AGE, eyeCondition, toEyeSetup } from '../../state/presets'
-import type { EyeChart, EyeCondition, EyeSetting } from '../../state/presets'
+import type { EyeChart, EyeCondition, EyeSceneView, EyeSetting } from '../../state/presets'
 import { ExperimentPanel } from '../ExperimentPanel'
 import { usePanelLayout } from '../hooks'
 import { PanelResizer } from '../PanelResizer'
 import type { ReportSection } from '../report'
+import { BeamSections } from './BeamSections'
+import { EyeFrontView } from './EyeFrontView'
 import { EyeScene } from './EyeScene'
 import { RetinalImage } from './RetinalImage'
 
@@ -19,24 +21,40 @@ const CHARTS: { id: EyeChart; label: string }[] = [
   { id: 'letters', label: 'Letter chart' },
   { id: 'text', label: 'Printed text' },
   { id: 'face', label: 'Face' },
+  { id: 'fan', label: 'Fan (astigmatism)' },
+]
+const SCENE_VIEWS: { id: EyeSceneView; label: string; title: string }[] = [
+  { id: 'side', label: 'Side', title: 'The vertical section of the eye' },
+  { id: 'top', label: 'Top', title: 'The horizontal section of the eye' },
+  { id: 'both', label: 'Side + top', title: 'Both sections: they differ when the eye is astigmatic' },
+  { id: 'front', label: 'Front', title: 'Facing the eye: the pupil, the meridians of the cornea and the axis of the glasses' },
+]
+/** Wavelengths offered at a click, with the names of the lines. */
+const LINES: { wavelength: number; label: string }[] = [
+  { wavelength: CHROMATIC_LINES.blue, label: '486 blue' },
+  { wavelength: nm(546), label: '546 green' },
+  { wavelength: EYE_REFERENCE_WAVELENGTH, label: '589 yellow' },
+  { wavelength: CHROMATIC_LINES.red, label: '656 red' },
 ]
 const CONDITIONS: { id: EyeCondition; label: string; title: string }[] = [
   { id: 'normal', label: 'Normal', title: 'Normal length and cornea: distant objects are in focus when the eye is relaxed' },
   { id: 'myopia', label: 'Myopia', title: `Eye too long: K = −${CONDITION_ERROR} D` },
   { id: 'hyperopia', label: 'Hyperopia', title: `Eye too short: K = +${CONDITION_ERROR} D` },
   { id: 'presbyopia', label: 'Presbyopia', title: `Normal eye at ${PRESBYOPIA_AGE} years: the lens can no longer accommodate enough for reading` },
+  { id: 'astigmatism', label: 'Astigmatism', title: `Cornea ${CONDITION_ASTIGMATISM} D steeper vertically than horizontally: 0.00 / −${CONDITION_ASTIGMATISM}.00 × 180` },
 ]
 /** Nearest vergence the object slider offers, dioptres; its other end is a distant object. */
 const NEAREST_VERGENCE = 1 / EYE_RANGES.objectDistance.min
 const FARTHEST_VERGENCE = 1 / EYE_RANGES.objectDistance.max
 
-const dioptres = (value: number, digits = 2): string => `${value > 0 ? '+' : value < 0 ? '−' : ''}${formatNumber(Math.abs(value), digits)} D`
+const dioptres = formatDioptres
 const distance = (value: number | null): string => (value === null ? 'none in front of the eye' : Number.isFinite(value) ? formatLength(value, 'cm', 1) : 'distant (∞)')
 
 function matches(eye: EyeSetting, condition: EyeCondition): boolean {
   const target = { ...eye, ...eyeCondition(condition) }
   const same = (a: number, b: number) => Math.abs(a - b) < 1e-7
-  const shape = same(eye.axialLength, target.axialLength) && same(eye.cornealRadius, target.cornealRadius)
+  const cross = (setting: EyeSetting) => setting.cornealRadiusCross ?? setting.cornealRadius
+  const shape = same(eye.axialLength, target.axialLength) && same(eye.cornealRadius, target.cornealRadius) && same(cross(eye), cross(target)) && (condition !== 'astigmatism' || same(eye.cornealMeridian, 0))
   if (condition === 'presbyopia') return shape && eye.age >= PRESBYOPIA_AGE
   return shape && (condition !== 'normal' || eye.age < PRESBYOPIA_AGE)
 }
@@ -48,37 +66,67 @@ interface Row {
   theory?: boolean
 }
 
-function viewRows(view: EyeView): Row['values'][] {
-  return [
-    [view.glasses ? dioptres(view.glasses.power) : 'none'],
-    [dioptres(view.vergence)],
-    [dioptres(view.accommodationNeeded)],
-    [`${formatNumber(view.accommodation, 2)} D`],
-    [`${formatNumber(view.lensPower, 2)} D`],
-    [`${formatNumber(view.totalPower, 2)} D`],
-    [view.focusOffset === null ? 'no focus in the eye' : Math.abs(view.focusOffset) < 5e-7 ? 'on the retina' : `${formatLength(Math.abs(view.focusOffset), 'mm', 2)} ${view.focusOffset > 0 ? 'behind' : 'in front'}`],
-    [`${formatNumber(fromMeters(view.blurDiameter, 'um'), 0)} µm`],
-    [`${formatNumber(fromMeters(Math.abs(view.letterImageHeight), 'um'), 1)} µm`],
-    [distance(view.farPoint)],
-    [distance(view.nearPoint)],
-    [view.sharpness],
-  ]
+/** What the rows of an image have to cover: the same for every eye shown beside each other. */
+interface Shown {
+  /** The beam has two focal lines, or the patch on the retina two diameters. */
+  astigmatic: boolean
+  realRays: boolean
+  /** A ring stop is in the pupil. */
+  ring: boolean
 }
 
-const VIEW_LABELS: { label: string; theory?: boolean }[] = [
-  { label: 'Glasses' },
-  { label: 'Vergence at the cornea L', theory: true },
-  { label: 'Accommodation needed K − L', theory: true },
-  { label: 'Accommodation in use', theory: true },
-  { label: 'Lens power', theory: true },
-  { label: 'Total power of the eye', theory: true },
-  { label: 'Focus relative to the retina', theory: true },
-  { label: 'Blur-disc diameter on the retina', theory: true },
-  { label: 'Letter height on the retina (inverted)', theory: true },
-  { label: 'Far point (from the cornea)', theory: true },
-  { label: 'Near point (from the cornea)', theory: true },
-  { label: 'Sharpness (blur ÷ stroke width)' },
-]
+const offset = (value: number): string => (Math.abs(value) < 5e-7 ? 'on the retina' : `${formatLength(Math.abs(value), 'mm', 2)} ${value > 0 ? 'behind' : 'in front'}`)
+const micrometres = (value: number, digits = 0): string => formatNumber(fromMeters(value, 'um'), digits)
+
+/** The measurements of one image, row by row. */
+function viewRows(view: EyeView, shown: Shown): { label: string; value: string; theory?: boolean }[] {
+  const glasses = view.glasses
+  const lines = view.focalLines
+  return [
+    { label: 'Glasses', value: glasses ? formatPrescription({ sphere: glasses.power, cylinder: glasses.cylinder ?? 0, axis: glasses.axis ?? 0 }) : 'none' },
+    { label: shown.astigmatic ? 'Vergence at the cornea L (mean of the meridians)' : 'Vergence at the cornea L', value: dioptres(view.vergence), theory: true },
+    { label: 'Accommodation needed K − L', value: dioptres(view.accommodationNeeded), theory: true },
+    { label: 'Accommodation in use', value: `${formatNumber(view.accommodation, 2)} D`, theory: true },
+    { label: 'Lens power', value: `${formatNumber(view.lensPower, 2)} D`, theory: true },
+    { label: shown.astigmatic ? 'Total power of the eye (first meridian)' : 'Total power of the eye', value: `${formatNumber(view.totalPower, 2)} D`, theory: true },
+    shown.astigmatic
+      ? {
+          label: 'Focal lines relative to the retina',
+          value: lines ? lines.map((line) => `${offset(line.offset)} (${formatAxis(line.angle)})`).join(' · ') : 'no focus in the eye',
+          theory: true,
+        }
+      : { label: shown.realRays ? 'Paraxial focus relative to the retina' : 'Focus relative to the retina', value: view.focusOffset === null ? 'no focus in the eye' : offset(view.focusOffset), theory: true },
+    ...(shown.astigmatic
+      ? [
+          { label: 'Interval between the focal lines', value: lines ? formatLength(lines[1].distance - lines[0].distance, 'mm', 2) : '—', theory: true },
+          {
+            label: 'Blur ellipse on the retina',
+            value: `${micrometres(view.blur.major)} × ${micrometres(view.blur.minor)} µm${view.blur.major - view.blur.minor > 5e-7 ? `, long axis at ${formatAxis(view.blur.angle)}` : ''}`,
+            theory: true,
+          },
+        ]
+      : []),
+    ...(shown.realRays
+      ? [
+          {
+            label: shown.ring ? 'Rays of the open ring cross the axis' : 'Edge rays cross the axis',
+            value: view.sphericalAberration?.marginalOffset == null ? 'not in the eye' : offset(view.sphericalAberration.marginalOffset).replace('on the retina', 'at the retina'),
+            theory: true,
+          },
+          {
+            label: `Spherical aberration K(0) − K(h)${view.sphericalAberration ? `, h = ${formatLength(view.sphericalAberration.rayHeight, 'mm', 2)}` : ''}`,
+            value: view.sphericalAberration ? dioptres(view.sphericalAberration.longitudinal) : '—',
+            theory: true,
+          },
+        ]
+      : []),
+    { label: 'Blur diameter on the retina (equivalent disc)', value: `${micrometres(view.blurDiameter)} µm`, theory: true },
+    { label: 'Letter height on the retina (inverted)', value: `${micrometres(Math.abs(view.letterImageHeight), 1)} µm`, theory: true },
+    { label: 'Far point (from the cornea)', value: distance(view.farPoint), theory: true },
+    { label: 'Near point (from the cornea)', value: distance(view.nearPoint), theory: true },
+    { label: 'Sharpness (blur ÷ stroke width)', value: view.sharpness },
+  ]
+}
 
 /** Section D: the schematic human eye, its accommodation and its glasses. */
 export function EyeWorkspace() {
@@ -105,20 +153,42 @@ export function EyeWorkspace() {
     ...(bare ? [{ title: compared ? `Age ${eye.age} without` : 'Without glasses', view: bare, solution }] : []),
     ...(compared ? [{ title: `Age ${eye.compareAge}${bare ? ' with glasses' : ''}`, view: compared.view, solution: compared }] : []),
   ]
-  const perEye = columns.map((column) => viewRows(column.view))
+  const cylinder = eye.glassesOn && eye.glassesCylinder !== 0
+  // An unknown eye gets the rows of an astigmatic one, so that the table does not say whether it is.
+  const shown: Shown = { astigmatic: hidden || solution.astigmatic || cylinder, realRays: solution.realRays, ring: solution.realRays && eye.pupilZone > 0 }
+  const perEye = columns.map((column) => viewRows(column.view, shown))
+  const light = eye.wavelength === null ? `white (${EYE_WHITE_TEMPERATURE} K)` : `${formatNumber(fromMeters(eye.wavelength, 'nm'), 0)} nm`
+  const unknown = (value: string) => (hidden ? 'unknown' : value)
   const eyeRows: Row[] = [
     { label: 'Object distance (from the cornea)', values: [distance(eye.objectDistance ?? Infinity)] },
     { label: 'Pupil diameter', values: [formatLength(eye.pupilDiameter, 'mm', 1)] },
     { label: 'Axial length', values: [hidden ? 'unknown' : formatLength(eye.axialLength, 'mm', 2)] },
-    { label: 'Corneal radius', values: [hidden ? 'unknown' : formatLength(eye.cornealRadius, 'mm', 2)] },
-    { label: 'Corneal power (n′ − 1)/r', values: [hidden ? 'unknown' : `${formatNumber(solution.cornealPower, 2)} D`] },
+    ...(hidden
+      ? [
+          { label: 'Corneal radii and their meridians', values: ['unknown'] },
+          { label: 'Corneal powers (n′ − 1)/r', values: ['unknown'] },
+        ]
+      : solution.astigmatic
+      ? [
+          { label: `Corneal radius at ${formatAxis(eye.cornealMeridian)} and across it`, values: [`${formatLength(eye.cornealRadius, 'mm', 2)} · ${formatLength(eye.cornealRadiusCross ?? eye.cornealRadius, 'mm', 2)}`] },
+          { label: 'Corneal powers (n′ − 1)/r', values: [`${formatNumber(solution.cornealPower, 2)} D · ${formatNumber(solution.cornealPowerCross, 2)} D`] },
+        ]
+      : [
+          { label: 'Corneal radius', values: [unknown(formatLength(eye.cornealRadius, 'mm', 2))] },
+          { label: 'Corneal power (n′ − 1)/r', values: [unknown(`${formatNumber(solution.cornealPower, 2)} D`)] },
+        ]),
+    ...(solution.realRays ? [{ label: 'Asphericity Q of the cornea · of the lens', values: [unknown(`${formatNumber(eye.cornealAsphericity, 2)} · ${formatNumber(eye.lensAsphericity, 2)}`)] }] : []),
+    { label: 'Light on the chart', values: [eye.dispersion ? light : `${light}; the eye has its 589 nm indices`] },
     { label: 'Age', values: [hidden ? 'unknown' : `${eye.age} years`] },
     { label: 'Relaxed lens power', values: [`${formatNumber(solution.relaxedLensPower, 2)} D`] },
-    { label: 'Refractive error K', values: [dioptres(solution.refractiveError)], theory: true },
+    solution.astigmatic || hidden
+      ? { label: 'Refraction K (sphere / cylinder × axis)', values: [formatPrescription(solution.refraction)], theory: true }
+      : { label: eye.dispersion ? `Refractive error K at ${formatNumber(fromMeters(solution.wavelength, 'nm'), 0)} nm` : 'Refractive error K', values: [dioptres(solution.refractiveError)], theory: true },
+    ...(solution.chromaticDifference === null ? [] : [{ label: 'Chromatic difference K(656 nm) − K(486 nm)', values: [dioptres(solution.chromaticDifference)], theory: true }]),
     { label: 'Largest accommodation (average for the age)', values: columns.length > 1 && compared ? columns.map((column) => `${formatNumber(column.solution.maxAccommodation, 1)} D`) : [`${formatNumber(solution.maxAccommodation, 1)} D`], theory: true },
-    { label: `Correcting glasses at ${formatLength(eye.vertexDistance, 'mm', 0)}  K/(1 + dK)`, values: [dioptres(solution.correctingPower)], theory: true },
+    { label: `Correcting glasses at ${formatLength(eye.vertexDistance, 'mm', 0)}  K/(1 + dK)`, values: [solution.astigmatic || hidden ? formatPrescription(solution.correctingLens) : dioptres(solution.correctingPower)], theory: true },
   ]
-  const lightRows: Row[] = VIEW_LABELS.map((entry, index) => ({ ...entry, values: perEye.map((rows) => rows[index][0]) }))
+  const lightRows: Row[] = perEye[0].map((entry, index) => ({ label: entry.label, theory: entry.theory, values: perEye.map((rows) => rows[index].value) }))
   const report: ReportSection[] = [
     { title: 'Eye', rows: eyeRows.map((row) => ({ label: row.label, value: row.values.join(' · '), theory: row.theory })) },
     ...columns.map((column, index) => ({
@@ -127,7 +197,7 @@ export function EyeWorkspace() {
     })),
   ]
 
-  const notices: { level: 'info' | 'warning'; text: string }[] = []
+  const notices: { level: 'info' | 'warning'; text: string }[] = solution.notices.map((text) => ({ level: 'warning', text }))
   if (view.focusDistance === null) notices.push({ level: 'warning', text: 'The light leaves the lens without converging: no image is formed in the eye.' })
   if (showTheory && eye.heldAccommodation === null) {
     if (view.accommodationNeeded > solution.maxAccommodation + 1e-9) {
@@ -137,6 +207,8 @@ export function EyeWorkspace() {
     }
   }
 
+  // The switches of the model belong to the eye: they are fixed on an exam bench and for an unknown eye.
+  const modelLocked = examLock !== null || eye.concealed
   const vergence = eye.objectDistance === null ? 0 : 1 / eye.objectDistance
   const held = eye.heldAccommodation !== null
   const table = (rows: Row[], titles: string[] | null) => (
@@ -177,15 +249,31 @@ export function EyeWorkspace() {
           <h2>Human eye</h2>
           <span className="model-tag imaging">geometric optics</span>
           <span className="panel-sub">{hidden ? 'unknown eye, drawn as the standard eye' : 'schematic eye, to scale; the object is set by its distance and is not drawn'}</span>
+          <div className="bench-tools">
+            <div className="chip-group" role="radiogroup" aria-label="View of the eye">
+              {SCENE_VIEWS.map((entry) => (
+                <button key={entry.id} role="radio" aria-checked={eye.sceneView === entry.id} className={`chip${eye.sceneView === entry.id ? ' active' : ''}`} title={entry.title} onClick={() => set({ sceneView: entry.id })}>
+                  {entry.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </header>
-        <EyeScene setup={setup} view={view} showLight={showTheory} unknown={hidden} />
+        {eye.sceneView === 'front' ? (
+          <EyeFrontView setup={setup} unknown={hidden} />
+        ) : (
+          <div className="eye-views">
+            {eye.sceneView !== 'top' && <EyeScene setup={setup} view={view} showLight={showTheory} unknown={hidden} section="side" titled={eye.sceneView === 'both'} />}
+            {eye.sceneView !== 'side' && <EyeScene setup={setup} view={view} showLight={showTheory} unknown={hidden} section="top" titled />}
+          </div>
+        )}
       </section>
 
       <PanelResizer label="the image" axis="x" target="next" column={2} row="1 / -1" {...layout.handle('side')} />
       <section className="panel screen-panel eye-image-panel" aria-label="Image on the retina">
         <header className="panel-header">
           <h2>Image</h2>
-          <span className="panel-sub">the chart as this eye images it, shown upright</span>
+          <span className="panel-sub">the chart as this eye sees it</span>
         </header>
         <div className={`retinal-images${columns.length > 1 ? ' several' : ''}`}>
           {columns.map((column) => (
@@ -203,7 +291,13 @@ export function EyeWorkspace() {
               ))}
             </div>
           </div>
-          <p className="hint">Width of the patch of retina shown. Brightness follows the area of the pupil.</p>
+          <p className="hint">Width of the patch of retina shown. Brightness follows the area of the pupil.{eye.chart === 'fan' ? ' The numbers on the fan are meridians in degrees, as an examiner facing the eye counts them.' : ''}</p>
+          {showTheory && (
+            <>
+              <span className="field-label">Beam cross-sections</span>
+              <BeamSections view={view} note={view.pointSpread.length > 1 ? 'Drawn for 589 nm, the wavelength the eye focuses in white light.' : undefined} />
+            </>
+          )}
         </div>
       </section>
 
@@ -270,7 +364,7 @@ export function EyeWorkspace() {
 
             <span className="field-label">Eye</span>
             {hidden ? (
-              <p className="concealed">Unknown eye: its length, cornea and age are not given. Find its far point, its near point or its glasses from the image.</p>
+              <p className="concealed">Unknown eye: its length, its cornea and its age are not given. Find its far point, its near point or its glasses from the image.</p>
             ) : (
               <>
                 <div className="control-row">
@@ -294,6 +388,30 @@ export function EyeWorkspace() {
                   <output>
                     {formatLength(eye.cornealRadius, 'mm', 2)} → {formatNumber(solution.cornealPower, 1)} D
                   </output>
+                </div>
+                <div className="control-row">
+                  <label className="check" htmlFor="eye-toric" title="A second radius for the meridian at right angles to the first: an astigmatic cornea">
+                    <input id="eye-toric" type="checkbox" checked={eye.cornealRadiusCross !== null} onChange={(event) => set({ cornealRadiusCross: event.target.checked ? eye.cornealRadius : null })} />
+                    Second radius
+                  </label>
+                  <input
+                    type="range"
+                    aria-label="Corneal radius in the meridian at right angles to the first"
+                    min={fromMeters(EYE_RANGES.cornealRadius.min, 'mm')}
+                    max={fromMeters(EYE_RANGES.cornealRadius.max, 'mm')}
+                    step={0.01}
+                    disabled={eye.cornealRadiusCross === null}
+                    value={Number(fromMeters(eye.cornealRadiusCross ?? eye.cornealRadius, 'mm').toFixed(2))}
+                    onChange={(event) => set({ cornealRadiusCross: mm(Number(event.target.value)) })}
+                  />
+                  <output>{eye.cornealRadiusCross === null ? 'same' : `${formatLength(eye.cornealRadiusCross, 'mm', 2)} → ${formatNumber(solution.cornealPowerCross, 1)} D`}</output>
+                </div>
+                <div className="control-row">
+                  <label htmlFor="eye-meridian" title="Direction of the meridian of the first radius, as seen facing the eye">
+                    Meridian
+                  </label>
+                  <input id="eye-meridian" type="range" min={0} max={175} step={5} disabled={eye.cornealRadiusCross === null} value={Math.round(radToDeg(eye.cornealMeridian)) % 180} onChange={(event) => set({ cornealMeridian: degToRad(Number(event.target.value)) })} />
+                  <output>{eye.cornealRadiusCross === null ? '—' : formatAxis(eye.cornealMeridian)}</output>
                 </div>
                 <div className="control-row">
                   <label htmlFor="eye-age">Age</label>
@@ -333,6 +451,93 @@ export function EyeWorkspace() {
               <output>{!held ? 'automatic' : showTheory ? `${formatNumber(view.accommodation, 2)} D` : `${Math.round((100 * view.accommodation) / Math.max(solution.maxAccommodation, 1e-9))}% of its range`}</output>
             </div>
 
+            <span className="field-label">Light</span>
+            <div className="control-row">
+              <label>Chart lit with</label>
+              <div className="chip-group">
+                <button className={`chip${eye.wavelength === null ? ' active' : ''}`} title={`White light: a black body of ${EYE_WHITE_TEMPERATURE} K`} onClick={() => set({ wavelength: null })}>
+                  White
+                </button>
+                {LINES.map((line) => (
+                  <button key={line.label} className={`chip${eye.wavelength !== null && Math.abs(eye.wavelength - line.wavelength) < nm(0.5) ? ' active' : ''}`} onClick={() => set({ wavelength: line.wavelength })}>
+                    {line.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="control-row">
+              <label htmlFor="eye-wavelength">Wavelength</label>
+              <input
+                id="eye-wavelength"
+                type="range"
+                min={fromMeters(EYE_ABERRATION_RANGES.wavelength.min, 'nm')}
+                max={fromMeters(EYE_ABERRATION_RANGES.wavelength.max, 'nm')}
+                step={1}
+                value={Math.round(fromMeters(eye.wavelength ?? EYE_REFERENCE_WAVELENGTH, 'nm'))}
+                onChange={(event) => set({ wavelength: nm(Number(event.target.value)) })}
+              />
+              <output>{eye.wavelength === null ? 'white' : `${formatNumber(fromMeters(eye.wavelength, 'nm'), 0)} nm`}</output>
+            </div>
+            <div className="control-row">
+              <label className="check" htmlFor="eye-dispersion" title="The refractive indices of the eye follow the wavelength. Off: the schematic eye's 589 nm indices in every light.">
+                <input id="eye-dispersion" type="checkbox" checked={eye.dispersion} disabled={modelLocked} onChange={(event) => set({ dispersion: event.target.checked })} />
+                Chromatic aberration
+              </label>
+            </div>
+
+            <span className="field-label">Rays</span>
+            <div className="control-row">
+              <label className="check" htmlFor="eye-real" title="Snell's law at every surface instead of the small-angle approximation. For an eye with one corneal radius and glasses without a cylinder.">
+                <input id="eye-real" type="checkbox" checked={eye.realRays} disabled={modelLocked} onChange={(event) => set({ realRays: event.target.checked })} />
+                Real rays (spherical aberration)
+              </label>
+            </div>
+            <div className="control-row">
+              <label htmlFor="eye-ring" title="A stop in the pupil that lets only an outer ring through: one zone of the pupil at a time. For real rays.">
+                Ring stop
+              </label>
+              <input id="eye-ring" type="range" {...EYE_ABERRATION_RANGES.pupilZone} disabled={!eye.realRays} value={eye.pupilZone} onChange={(event) => set({ pupilZone: Number(event.target.value) })} />
+              <output>
+                {eye.pupilZone === 0 || !eye.realRays
+                  ? 'open pupil'
+                  : `${formatNumber(fromMeters((eye.pupilZone * eye.pupilDiameter) / 2, 'mm'), 2)}–${formatNumber(fromMeters(eye.pupilDiameter / 2, 'mm'), 2)} mm, h = ${formatLength(zoneHeight(eye.pupilDiameter, eye.pupilZone), 'mm', 2)}`}
+              </output>
+            </div>
+            {!hidden && (
+              <>
+                <div className="control-row">
+                  <label>Surfaces</label>
+                  <div className="chip-group">
+                    <button className={`chip${eye.cornealAsphericity === 0 && eye.lensAsphericity === 0 ? ' active' : ''}`} disabled={!eye.realRays} title="The schematic eye as published: Q = 0 everywhere" onClick={() => set({ cornealAsphericity: 0, lensAsphericity: 0 })}>
+                      Spheres
+                    </button>
+                    <button
+                      className={`chip${Math.abs(eye.cornealAsphericity - AVERAGE_CORNEAL_ASPHERICITY) < 0.005 && Math.abs(eye.lensAsphericity - averageLensAsphericity()) < 0.03 ? ' active' : ''}`}
+                      disabled={!eye.realRays}
+                      title="Cornea Q = −0.26; lens Q solved for the mean measured spherical aberration, 1.0 D at 3 mm"
+                      onClick={() => set({ cornealAsphericity: AVERAGE_CORNEAL_ASPHERICITY, lensAsphericity: averageLensAsphericity() })}
+                    >
+                      Average eye
+                    </button>
+                  </div>
+                </div>
+                <div className="control-row">
+                  <label htmlFor="eye-q-cornea" title="Asphericity of the cornea: 0 a sphere, negative values flatten it towards the edge">
+                    Q cornea
+                  </label>
+                  <input id="eye-q-cornea" type="range" {...EYE_ABERRATION_RANGES.cornealAsphericity} disabled={!eye.realRays} value={eye.cornealAsphericity} onChange={(event) => set({ cornealAsphericity: Number(event.target.value) })} />
+                  <output>{formatNumber(eye.cornealAsphericity, 2)}</output>
+                </div>
+                <div className="control-row">
+                  <label htmlFor="eye-q-lens" title="Asphericity of both surfaces of the lens">
+                    Q lens
+                  </label>
+                  <input id="eye-q-lens" type="range" {...EYE_ABERRATION_RANGES.lensAsphericity} disabled={!eye.realRays} value={Number(eye.lensAsphericity.toFixed(2))} onChange={(event) => set({ lensAsphericity: Number(event.target.value) })} />
+                  <output>{formatNumber(eye.lensAsphericity, 2)}</output>
+                </div>
+              </>
+            )}
+
             <span className="field-label">Glasses</span>
             <div className="control-row">
               <label className="check" htmlFor="eye-glasses">
@@ -350,6 +555,29 @@ export function EyeWorkspace() {
                 onChange={(event) => set({ glassesPower: Number(event.target.value) })}
               />
               <output>{dioptres(eye.glassesPower)}</output>
+            </div>
+            <div className="control-row">
+              <label htmlFor="eye-cylinder" title="Power added in the meridian at right angles to the axis">
+                Cylinder
+              </label>
+              <input id="eye-cylinder" type="range" {...EYE_ABERRATION_RANGES.glassesCylinder} disabled={!eye.glassesOn} value={eye.glassesCylinder} onChange={(event) => set({ glassesCylinder: Number(event.target.value) })} />
+              <output>{dioptres(eye.glassesCylinder)}</output>
+            </div>
+            <div className="control-row">
+              <label htmlFor="eye-axis" title="Axis of the cylinder as seen facing the eye, counter-clockwise from the horizontal">
+                Axis
+              </label>
+              <input
+                id="eye-axis"
+                type="range"
+                min={1}
+                max={180}
+                step={1}
+                disabled={!eye.glassesOn || eye.glassesCylinder === 0}
+                value={Math.round(radToDeg(eye.glassesAxis)) % 180 || 180}
+                onChange={(event) => set({ glassesAxis: degToRad(Number(event.target.value)) })}
+              />
+              <output>{eye.glassesCylinder === 0 ? '—' : formatAxis(eye.glassesAxis)}</output>
             </div>
             <div className="control-row">
               <label htmlFor="eye-vertex">Vertex distance</label>

@@ -380,10 +380,167 @@ age relation is a population average with a spread of several dioptres between p
 reaches zero at 62 years, although real eyes keep about 1 D of apparent accommodation from their
 depth of focus.
 
-**Not modelled:** astigmatism, spherical and chromatic aberration, diffraction at the pupil, the
-Stiles–Crawford effect, the change of the pupil with accommodation and age, and everything the
+**Switched off unless asked for:** astigmatism, chromatic aberration and spherical aberration.
+With one corneal radius, the eye's 589 nm indices in every light and paraxial rays, the eye is
+exactly the one described above. The three subsections below describe what each switch adds.
+
+**Not modelled:** aberrations of objects off the axis (coma, oblique astigmatism), irregular
+astigmatism and astigmatism of the lens, diffraction at the pupil, the gradient index of the lens,
+the Stiles–Crawford effect, the change of the pupil with accommodation and age, and everything the
 retina and the brain do with the image. The ciliary muscle and the zonule in the drawing are
 anatomy; they carry no calculation.
+
+### Astigmatism — `astigmatism.ts`
+
+- **A toric cornea.** The cornea has a radius r₁ in one meridian and r₂ in the meridian at right
+  angles to it; each has the power (n′ − 1)/r. The second radius is an input like the first
+  (7.0–8.6 mm), with the direction θ of the first meridian.
+- **Angles** are those seen by an examiner facing the eye: counter-clockwise from the horizontal,
+  0° to 180°, x to the examiner's right and y up. This is the notation of a prescription.
+- **Rays in two meridians.** A paraxial ray has a two-component height **y** and slope **u**. A
+  curvature or a power is a symmetric 2 × 2 matrix, and the ray-transfer matrix [A B; C D] of §3 is
+  built of 2 × 2 blocks:
+  - gap d: **y′** = **y** + d **u**;
+  - surface from n into n′ with curvature matrix **C** = R(θ) diag(1/r₁, 1/r₂) R(θ)ᵀ:
+    **u′** = (n/n′) **u** − ((n′ − n)/n′) **C** **y**;
+  - thin lens of power matrix **F**: **u′** = **u** − **F** **y**.
+
+  This is exact in the paraxial approximation for any orientation of the elements, obliquely
+  crossed cylinders included. For a symmetric system every block is a multiple of the unit matrix
+  and the scalar matrices of `rayTransfer.ts` are recovered (tested).
+- **The beam of an object point.** Light of vergence L at the first element enters at **p** with
+  the slope −L **p**. Naming a ray by the point **s** where it passes the pupil, its height at a
+  plane x behind the lens is **W**(x) **s**, with **W**(x) = **P** + (x − x_b) **Q** from the block
+  matrices (x_b the back of the lens).
+- **Focal lines.** The beam collapses to a line where det **W**(x) = 0, a quadratic in x: two
+  planes, one for each principal meridian (the conoid of Sturm). The line at each plane lies along
+  the direction in which **W** still spreads the light. A cornea of 7.80 mm horizontally and
+  7.45 mm vertically (42.74 D and 44.74 D) on the normal length focuses the horizontal meridian on
+  the retina and the vertical one 0.71 mm in front of it: a vertical line on the retina, a
+  horizontal line in front.
+- **Blur.** On the retina the pupil circle of radius R is mapped by **W** to an ellipse whose
+  semi-axes are R times the singular values of **W**. For that eye, a distant object and a 4 mm
+  pupil: a vertical line 150 µm long. Held relaxed with the object at 1 m, the circle of least
+  confusion lies on the retina: 75 µm.
+- **Refraction.** The refractive error is the matrix **K** = R(θ) diag(K₁, K₂) R(θ)ᵀ of the two
+  meridians' errors. It is written as sphere / cylinder × axis with a negative cylinder: the sphere
+  is the larger principal value, the cylinder the difference, the axis the direction of the
+  sphere's meridian. That eye is 0.00 / −2.00 × 180. The scalar K reported elsewhere is the mean of
+  the two (the spherical equivalent).
+- **Accommodation.** The lens is symmetric, so accommodation moves both focal lines together. Left
+  to itself the eye accommodates for the mean vergence of the two meridians, which puts the circle
+  of least confusion on the retina to within a percent. This is an assumption about the eye's
+  control, not a result.
+- **Image scale.** The chief ray (through the centre of the pupil) maps the direction of an object
+  point to its place on the retina with a 2 × 2 matrix; the chart is drawn with it, so the slight
+  stretch of the image along one meridian (also by a cylinder lens) is in the picture. The letter
+  height quoted is the geometric mean of the two scales.
+- **Assumptions and limits.** Paraxial; a toric cornea and a symmetric lens, centred on one axis;
+  regular astigmatism only.
+
+### Chromatic aberration of the eye — `ocularDispersion.ts`
+
+- **Dispersion.** The index of the *chromatic eye* (L. N. Thibos, M. Ye, X. Zhang, A. Bradley,
+  Applied Optics 31, 3594, 1992) is n_c(λ) = 1.320535 + 0.004685/(λ − 0.214102), λ in micrometres;
+  n_c(589 nm) = 1.3330. Every medium of the schematic eye is given this dispersion: its
+  refractivity at 589 nm, where the schematic eye's indices are taken to hold, is scaled,
+
+  n(λ) − 1 = (n₅₈₉ − 1) · (n_c(λ) − 1)/(n_c(589 nm) − 1).
+
+  At 486 nm the humour has n = 1.3381 and the lens 1.4219; at 656 nm 1.3314 and 1.4136.
+- **Result.** The eye is traced at the wavelength of the light. The relaxed normal eye has
+  K = −0.61 D at 486 nm, 0 at 589 nm and +0.24 D at 656 nm; its focus lies 0.22 mm in front of the
+  retina, on it, and 0.09 mm behind it. The chromatic difference of refraction between the two
+  lines is 0.85 D.
+- **Against measurement.** The chromatic eye was fitted to measured eyes: its chromatic difference
+  of refraction is Rx(λ) = 1.68524 − 0.63346/(λ − 0.21410) dioptres, 0.90 D between those lines.
+  The three-surface eye here gives 5% less, because its separations do not scale with its powers;
+  over 400–700 nm it stays within 0.1 D of that curve (tested).
+- **Light on the chart.** One wavelength between 400 and 700 nm, or white light: a black body of
+  6500 K divided into twelve bands, each with its linear-sRGB weight from the colour-matching
+  functions of §8. The weights are scaled channel by channel so that the bands add up to the
+  display's white: the white of the chart is shown as white.
+- **White light.** The eye is taken to accommodate for 589 nm. Every band then has its own patch on
+  the retina (70 µm across at 450 nm with a 4 mm pupil), and the image is the sum of the chart
+  blurred band by band: coloured edges. The measurements quoted in white light are those at 589 nm.
+- **Switch.** Without "chromatic aberration" the eye keeps its 589 nm indices in every light: the
+  schematic eye as published. Monochromatic light then only colours the image.
+- **Assumptions and limits.** Homogeneous media sharing one dispersion curve; 400–700 nm. The
+  difference of image size between colours is neglected: with the pupil 3.6 mm behind the cornea it
+  is below 1% of the distance from the axis. The spectacle lens has no chromatic aberration (it
+  would add F/V, 0.05 D for a 3 D lens). The eye's choice of 589 nm in white light is an
+  assumption; real eyes focus a wavelength between about 550 and 590 nm.
+
+### Spherical aberration of the eye — `eyeRays.ts`
+
+- **Surfaces** are conicoids of revolution: with s measured from the vertex plane,
+  c (y² + (1 + Q) s²) − 2s = 0, that is s = c y²/(1 + √(1 − (1 + Q) c² y²)). c = 1/r is the vertex
+  curvature, so the paraxial eye does not depend on Q. Q = 0 is a sphere, −1 < Q < 0 an ellipsoid
+  that flattens towards its edge, Q = −1 a paraboloid.
+- **Real rays.** A meridional ray is followed exactly: its intersection with the surface is the
+  smaller root of a quadratic, and it is refracted by Snell's law, n sin i = n′ sin i′, in vector
+  form **d′** = μ **d** + (μ cos i − √(1 − μ²(1 − cos² i))) **n**, μ = n/n′. A ray that misses a
+  surface, would pass beyond the edge of the lens or is totally reflected is blocked; the share of
+  blocked light is reported.
+- **Checks.** A single sphere of 7.8 mm into n′ = 4/3: the ray at 3 mm crosses the axis at
+  29.86 mm, where the triangle with the centre of curvature puts it (the paraxial focus is at
+  31.20 mm). An ellipsoid with Q = −(n/n′)² = −0.5625 is free of spherical aberration for a distant
+  point: every ray crosses at 31.20 mm.
+- **Zone refraction.** K(h) is the vergence at the cornea of the object point whose ray through the
+  pupil at the height h meets the axis at the retina. The longitudinal spherical aberration is
+  K(0) − K(h) for the ray through the edge of the pupil, positive when the edge rays are focused in
+  front. Relaxed normal eye with spherical surfaces, 4 mm pupil: 2.1 D, the edge rays crossing
+  0.73 mm in front of the retina.
+- **Shapes.** *Spheres*: the schematic eye as published. Its spherical aberration is several times
+  that of a real eye. *Average eye*: cornea Q = −0.26 (P. M. Kiely, G. Smith, L. G. Carney, Optica
+  Acta 29, 1027, 1982) and one Q for both lens surfaces, solved so that a distant ray entering 3 mm
+  from the axis has 1.0 D of aberration. That is the mean of measured eyes: Z₄⁰ = 0.138 µm over a
+  5.7 mm pupil (J. Porter et al., J. Opt. Soc. Am. A 18, 1793, 2001) gives W₀₄₀ = 6√5 Z₄⁰ and
+  4 W₀₄₀ h²/R⁴ = 1.0 D at h = 3 mm. The solve gives Q = −2.20. This Q stands in for the gradient
+  index of the real lens; it is a fit to the total, not a measured lens shape.
+- **Light on the retina.** The pupil is divided into 24 zones of equal area. The rays that bound
+  them land on the retina at radii ρ₀ … ρ₂₄; each zone's light fills the ring between two of them.
+  The picture is the chart convolved with those rings.
+- **Equivalent blur diameter.** For any light of an object point, d = 2√2 · r_rms, with r_rms the
+  root-mean-square distance from the axis (weighted by luminance in white light). For a uniform
+  disc this is its diameter, for an ellipse √(2(a² + b²)) with semi-axes a and b, so a 150 µm line
+  counts as 106 µm. The sharpness grade uses it for every eye. With spherical surfaces and a 6 mm
+  pupil it is 0.40 mm although the eye is in paraxial focus.
+- **Best focus.** The eye still accommodates for its paraxial focus. The spherical lens that makes
+  d smallest moves with the pupil: for the average eye −0.08 D at 2 mm and −1.60 D at 8 mm; for
+  spherical surfaces −0.33 D and −7.91 D. But with a wide pupil "the sharpest lens" is not one
+  lens: the lens of smallest d, the lens of highest contrast for fine bars and the lens a picture
+  looks best with differ by a dioptre or more, because the beam has no single focus.
+- **Ring stop.** A stop in the pupil can cover its middle up to a fraction ε of its radius R. Real
+  rays are then traced through the open ring only, the image is dimmer by 1 − ε², and the ring is
+  named by its root-mean-square radius h = R √((1 + ε²)/2). A narrow ring has one focus, so one
+  lens makes its image sharp: the lens that corrects K(h). This is how the experiment measures the
+  aberration, zone by zone: K(centre) − K(h), with the 2 mm open pupil standing for the centre.
+  Through 2.70–3.00 mm (ε = 0.9 at 6 mm, h = 2.85 mm): 4.89 D with spherical surfaces, 1.14 D for
+  the average eye. Near the axis the aberration is a h² with a = 0.122 D/mm² for the average eye.
+- **Assumptions and limits.** Homogeneous media; an object point on the axis; pupil 2–8 mm;
+  −1 ≤ Q ≤ 0.5 for the cornea and −6 ≤ Q ≤ 1 for the lens. The lens asphericity is held fixed while
+  the eye accommodates. The glasses are an ideal thin lens. Real rays are traced only in an eye
+  with one corneal radius and glasses without a cylinder: a meridional ray needs an eye that is the
+  same in every plane through its axis. Otherwise the laboratory says so and traces paraxially.
+  Geometric optics: within about 4 µm of a point (the Airy radius 1.22 λ f/D at 4 mm) the real
+  image is limited by diffraction, which is not modelled.
+
+### Views of the eye
+
+- **Side and top view** are the vertical and the horizontal section. Each draws the cornea with
+  its curvature in that plane, c₁ cos²δ + c₂ sin²δ at the angle δ from the first meridian, with its
+  asphericity, and the rays that pass the edge of the pupil in that plane. When a principal
+  meridian of the system lies in the plane the rays stay in it; otherwise they leave it, the
+  drawing shows their projection and says so.
+- **Front view**: the pupil at its diameter, the principal meridians of the cornea with their
+  radii, and the axis of the cylinder, on the examiner's scale of degrees.
+- **Beam cross-sections**: the outline of the light of one object point at planes from in front of
+  the first focus to behind the last, the retina among them, seen facing the eye: the ellipse
+  **W**(x) of paraxial light, or the rings of the real rays. They are exact for any orientation.
+- **The image panel** shows what the eye sees. That is the examiner's picture mirrored left to
+  right; the numbers on the fan chart are meridians in the examiner's count, so the sharp line of
+  the fan names the direction of the focal line on the retina.
 
 ## 17. Spectacles — `spectacles.ts`
 
@@ -400,8 +557,16 @@ anatomy; they carry no calculation.
   size (spectacle magnification) follows from the trace: about −4% for the −3 D correction.
 - While the glasses are on, the laboratory also solves the bare eye for the same object and shows
   both.
+- **Cylinder.** The glasses can carry a cylinder C with its axis at the angle a: the power is S
+  along the axis and S + C in the meridian at right angles to it, the matrix
+  **F** = S·**1** + C·[sin²a, −sin a cos a; −sin a cos a, cos²a]. Light of vergence L leaves the
+  lens with **L′** = L·**1** + **F** and reaches the cornea with **L′**(**1** − d**L′**)⁻¹.
+- The lens that corrects a refraction **K** is **F** = **K**(**1** + d**K**)⁻¹: Fs = K/(1 + dK) in
+  each principal meridian, with the eye's axis. 0.00 / −2.00 × 180 is corrected by
+  0.00 / −2.05 × 180 at 12 mm. With the axis 10° off, a 4 mm pupil is left with a patch of 26 µm;
+  with the spherical equivalent alone (−1.00 D) with a round patch of 75 µm, half the line.
 - Assumptions: a thin lens, on the axis of the eye, in paraxial light. Lens thickness and shape,
-  prismatic effects off the axis and cylinder (astigmatic) lenses are not modelled.
+  prismatic effects off the axis and the chromatic aberration of the lens are not modelled.
 
 ## 18. Lab notebook — `src/education/`
 
@@ -428,9 +593,19 @@ anatomy; they carry no calculation.
 takes the calculated irradiance, applies the exposure gain and a display gamma of 2.2. Patterns are
 sampled three times per pixel and averaged in linear light so fine fringes do not alias.
 
+`src/render/eyeImage.ts` draws the chart at its retinal size and convolves it with the light of one
+object point that the eye solver returned (`src/render/pointSpread.ts`). One uniform ellipse is
+convolved row by row on prefix sums, as the blur disc of §3 is. Anything else (several colours,
+rings) is rasterised into one kernel per colour channel by covered area and convolved by a
+radix-2 Fourier transform on a zero-margined grid of at most 512 points a side. Both conserve the
+light, and agree with each other on a disc (tested). A patch smaller than a pixel is drawn as a
+point, and a line or ring never thinner than a pixel.
+
 ## 20. Known limitations
 
-- Paraxial optics throughout: no spherical or chromatic aberration.
+- Paraxial optics on the bench: no spherical or chromatic aberration of its lenses and mirrors.
+  The eye has both, and astigmatism, as options (§16).
+- In the eye: real rays not together with astigmatism; no aberrations off the axis; no diffraction.
 - No vignetting of off-axis object points; no diffraction limit of the lens.
 - Laser speckle and the laser's coherence length are not modelled.
 - One source, one object, one diffracting element (slit, double slit, grating or pinhole), one
@@ -441,7 +616,7 @@ sampled three times per pixel and averaged in linear light so fine fringes do no
 
 ## 21. Validation
 
-`npm test` runs 285 tests of the physics layer, the notebook analysis and every experiment preset,
+`npm test` runs 350 tests of the physics layer, the notebook analysis and every experiment preset,
 including:
 
 | Check | Expected |
@@ -473,6 +648,12 @@ including:
 | Refractive error | ±3 D at 25.04 and 22.85 mm axial length; focus 1.14 mm in front of, 1.05 mm behind the retina |
 | Blur on the retina | 295 µm at 4 D of defocus with a 4 mm pupil; proportional to the pupil; zero in focus |
 | Spectacles | −3.11, +2.90 and −6.47 D correct −3, +3 and −6 D at 12 mm; +1.50 D at 40 cm leaves 0.99 D to accommodate |
+| Astigmatic eye | 7.80 / 7.45 mm cornea: 0.00 / −2.00 × 180; vertical line of 150 µm on the retina, horizontal line 0.71 mm in front; 75 µm circle at 1 m; equal radii give the symmetric eye |
+| Cylinder glasses | 0.00 / −2.05 × 180 at 12 mm leaves no blur; 26 µm with the axis 10° off; each meridian obeys K/(1 + dK) |
+| Chromatic eye | n_c(589 nm) = 1.3330; K = −0.61 D at 486 nm, +0.24 D at 656 nm; within 10% of the measured 0.90 D; nothing changes at 589 nm |
+| Real rays | sphere: 29.86 mm at 3 mm, equal to the closed form; ellipsoid Q = −0.5625: 31.20 mm at every height; paraxial limit |
+| Spherical aberration | 2.1 D and −0.73 mm at a 4 mm pupil; 0.40 mm of blur at 6 mm; lens Q solved for 1.0 D at 3 mm; a ring stop is brought to focus by the lens of its zone; aberration ∝ h² |
+| Point spread | ellipse blur equals the disc blur for a circle; Fourier convolution agrees with it and conserves light; a focal line keeps its own fan line sharp |
 | Prism | δ_min = 38.50° for a 60° BK7 prism at 632.8 nm; total internal reflection at 20° incidence |
 | Uncertainty | Δf = 0.046 cm for do = 30.0 ± 0.1 cm, di = 15.0 ± 0.1 cm (analytic value) |
 | Line fit | slope, intercept and standard errors of a hand-computed example |

@@ -82,8 +82,11 @@ it with the saved setting.
 The bench of an exam question is locked to experiment mode: calculated results show as *to be
 measured*, *Reveal theory*, ray diagrams and the experiment guide are unavailable, and with *Hide
 the unknowns…* ticked a lens reads `f = ?`, the interferometer's laser reads `λ = ?`, and an eye
-becomes an *unknown eye*: its length, cornea and age are not shown and cannot be changed, and it is
-drawn with the standard dimensions so that they cannot be measured off the picture. The student
+becomes an *unknown eye*: its length, its cornea (both radii, their direction and the shape of the
+surfaces) and its age are not shown and cannot be changed, and it is drawn with the standard
+dimensions, without the meridians in the front view, so that they cannot be measured off the
+picture. Whether the eye has chromatic aberration and whether real rays are traced is part of the
+question's bench: the student cannot switch either. The student
 finds its far point, near point or glasses from the image. Glasses come in steps of 0.25 D, so
 accept a refractive error within about ±0.3 D. The lab notebook, which evaluates the
 experiment's formula from the readings, is available only if the teacher allows it for that

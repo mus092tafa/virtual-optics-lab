@@ -6,7 +6,7 @@ import { RAIL_LENGTH } from '../physics/constants'
 import { imageDistance } from '../physics/lenses'
 import { sequentialImaging } from '../physics/rayTransfer'
 import type { BenchComponent } from '../physics/types'
-import { cm, degToRad, mm, um } from '../physics/units'
+import { cm, degToRad, mm, nm, um } from '../physics/units'
 import { actions, labStore } from './labState'
 import type { ExperimentId } from './presets'
 
@@ -30,6 +30,9 @@ export const SWEEP_LABELS: Record<ExperimentId, string> = {
   'eye-accommodation': 'object distance',
   'eye-glasses': 'glasses power',
   'eye-ageing': 'age',
+  'eye-astigmatism': 'axis of the cylinder',
+  'eye-chromatic': 'wavelength',
+  'eye-spherical': 'ring stop',
 }
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t
@@ -121,6 +124,17 @@ export function applySweep(id: ExperimentId, t: number): void {
       break
     case 'eye-ageing':
       actions.updateEye({ age: lerp(20, 70, t) })
+      break
+    case 'eye-astigmatism':
+      // The correcting cylinder turned through half a turn: the image is sharp only where its axis is right.
+      actions.updateEye({ glassesOn: true, glassesPower: 0, glassesCylinder: -2, glassesAxis: degToRad(lerp(0, 180, t)) })
+      break
+    case 'eye-chromatic':
+      actions.updateEye({ dispersion: true, wavelength: nm(lerp(420, 680, t)) })
+      break
+    case 'eye-spherical':
+      // The open ring moved from the centre of a 6 mm pupil to its edge: its focus moves forward.
+      actions.updateEye({ realRays: true, pupilDiameter: mm(6), pupilZone: lerp(0.3, 0.9, t) })
       break
     case 'prism':
       actions.updatePrism({ incidenceAngle: degToRad(lerp(35, 80, t)) })

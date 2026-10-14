@@ -3,8 +3,8 @@
  * Holds only the physical configuration and view settings; everything that is
  * observed is derived from it by the physics layer.
  */
-import { EYE, EYE_RANGES, HENE_LINES, LENS_FOCAL_LENGTHS, MIN_COMPONENT_GAP, POSITION_SNAP, RAIL_LENGTH } from '../physics/constants'
-import { NORMAL_AXIAL_LENGTH, axialLengthFor, maxAccommodation } from '../physics/eye'
+import { EYE, EYE_ABERRATION_RANGES, EYE_RANGES, HENE_LINES, LENS_FOCAL_LENGTHS, MIN_COMPONENT_GAP, POSITION_SNAP, RAIL_LENGTH } from '../physics/constants'
+import { NORMAL_AXIAL_LENGTH, axialLengthFor, cornealPower, cornealRadiusFor, maxAccommodation } from '../physics/eye'
 import { degToRad } from '../physics/units'
 import type { SurfaceSetup } from '../physics/surface'
 import type { BenchComponent, ComponentKind, DiffractionModel } from '../physics/types'
@@ -137,6 +137,9 @@ const SECTION_OF: Record<ExperimentId, LabSection> = {
   'eye-accommodation': 'eye',
   'eye-glasses': 'eye',
   'eye-ageing': 'eye',
+  'eye-astigmatism': 'eye',
+  'eye-chromatic': 'eye',
+  'eye-spherical': 'eye',
 }
 
 /** Experiments for which demonstration mode starts with the ray diagram on. */
@@ -463,6 +466,17 @@ export const actions = {
       // The lens cannot be held beyond what the eye can do at its age.
       if (next.heldAccommodation !== null) next.heldAccommodation = Math.min(maxAccommodation(next.age), Math.max(0, next.heldAccommodation))
       if (next.compareAge !== null) next.compareAge = Math.round(within(next.compareAge, EYE_RANGES.age))
+      if (next.cornealRadiusCross !== null) next.cornealRadiusCross = within(next.cornealRadiusCross, EYE_RANGES.cornealRadius)
+      // Meridians and axes are directions: they repeat after half a turn.
+      const direction = (angle: number) => ((angle % Math.PI) + Math.PI) % Math.PI
+      next.cornealMeridian = direction(next.cornealMeridian)
+      next.glassesAxis = direction(next.glassesAxis)
+      const cylinder = EYE_ABERRATION_RANGES.glassesCylinder
+      next.glassesCylinder = Math.round(within(next.glassesCylinder, cylinder) / cylinder.step) * cylinder.step
+      if (next.wavelength !== null) next.wavelength = within(next.wavelength, EYE_ABERRATION_RANGES.wavelength)
+      next.pupilZone = within(next.pupilZone, EYE_ABERRATION_RANGES.pupilZone)
+      next.cornealAsphericity = within(next.cornealAsphericity, EYE_ABERRATION_RANGES.cornealAsphericity)
+      next.lensAsphericity = within(next.lensAsphericity, EYE_ABERRATION_RANGES.lensAsphericity)
       return { eye: next }
     })
   },
@@ -476,13 +490,21 @@ export const actions = {
     // Whole and half dioptres from −5 to +4, without the normal eye.
     const errors = [-5, -4.5, -4, -3.5, -3, -2.5, -2, -1.5, -1, 1, 1.5, 2, 2.5, 3, 3.5, 4]
     const error = errors[Math.floor(Math.random() * errors.length)]
-    actions.updateEye({ axialLength: axialLengthFor(error), cornealRadius: EYE.cornealRadius, concealed: true, glassesOn: false, glassesPower: 0 })
+    const unknown = { cornealRadius: EYE.cornealRadius, concealed: true, glassesOn: false, glassesPower: 0, glassesCylinder: 0, glassesAxis: 0 }
+    if (labStore.get().experiment === 'eye-astigmatism') {
+      // An astigmatic cornea on the normal length: 1 to 3 D in half dioptres, its meridians in steps of 15°.
+      const astigmatism = 1 + 0.5 * Math.floor(Math.random() * 5)
+      const meridian = (Math.PI / 12) * Math.floor(Math.random() * 12)
+      actions.updateEye({ ...unknown, axialLength: NORMAL_AXIAL_LENGTH, cornealRadiusCross: cornealRadiusFor(cornealPower(EYE.cornealRadius) + astigmatism), cornealMeridian: meridian })
+    } else {
+      actions.updateEye({ ...unknown, axialLength: axialLengthFor(error), cornealRadiusCross: null })
+    }
     update({ revealed: false })
   },
   /** Puts the known normal eye back in place of an unknown one. */
   useKnownEye() {
     if (labStore.get().examLock) return
-    actions.updateEye({ axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius, concealed: false })
+    actions.updateEye({ axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius, cornealRadiusCross: null, concealed: false })
   },
   addNotebookRow(row: NotebookRow) {
     update((state) => ({

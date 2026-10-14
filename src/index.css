@@ -1830,6 +1830,117 @@ td .theory {
   fill: var(--faint);
 }
 
+/* The sections of the eye, one above the other when both are shown. */
+.eye-views {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.eye-views .eye-scene + .eye-scene {
+  border-top: 1px solid var(--line-soft);
+}
+
+.eye-front-iris {
+  fill: rgba(176, 131, 90, 0.22);
+  stroke: #b0835a;
+  stroke-width: 1.5;
+}
+
+.eye-front-pupil {
+  fill: #05080c;
+  stroke: #b0835a;
+  stroke-width: 1;
+}
+
+.eye-front-stop {
+  fill: #6f7b8a;
+  stroke: #b0835a;
+  stroke-width: 1;
+}
+
+.eye-iris.stop {
+  stroke: #6f7b8a;
+}
+
+.eye-degrees line {
+  stroke: #56657a;
+  stroke-width: 1;
+}
+
+.eye-meridian {
+  stroke: #9fd3ff;
+  stroke-width: 1.6;
+}
+
+.eye-meridian.cross {
+  stroke-dasharray: 5 4;
+}
+
+.eye-cylinder-axis {
+  stroke: #ffd166;
+  stroke-width: 1.6;
+  stroke-dasharray: 2 3;
+}
+
+/* Cross-sections of the beam of one object point. */
+.beam-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.beam-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(46px, 1fr));
+  gap: 5px;
+}
+
+.beam-strip figure {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.beam-strip svg {
+  width: 100%;
+  aspect-ratio: 1;
+  display: block;
+  border: 1px solid #2c3847;
+  border-radius: 4px;
+  background: #000;
+}
+
+.beam-strip figure.retina svg {
+  border-color: #ff8a65;
+}
+
+.beam-strip figcaption {
+  font-size: 10.5px;
+  font-family: var(--mono);
+  color: var(--muted);
+  text-align: center;
+}
+
+.beam-axis {
+  stroke: #1f2a37;
+  stroke-width: 0.6;
+}
+
+.beam-patch {
+  fill: rgba(255, 209, 102, 0.55);
+  stroke: #ffd166;
+  stroke-width: 0.8;
+}
+
+.beam-ring {
+  fill: none;
+  stroke: rgba(11, 15, 20, 0.7);
+  stroke-width: 0.5;
+}
+
 .retinal-images {
   display: grid;
   gap: 8px;

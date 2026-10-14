@@ -2,8 +2,8 @@
  * Bench layouts for the predefined experiments. Positions are physical
  * (metres along the rail) and built through the unit helpers.
  */
-import { DEFAULT_LENS_APERTURE, DEFAULT_MIRROR_APERTURE, DEFAULT_PINHOLE_DIAMETER, DEFAULT_VERTEX_DISTANCE, EYE, GRATING_APERTURE } from '../physics/constants'
-import { NORMAL_AXIAL_LENGTH, axialLengthFor } from '../physics/eye'
+import { CONDITION_ASTIGMATISM, DEFAULT_LENS_APERTURE, DEFAULT_MIRROR_APERTURE, DEFAULT_PINHOLE_DIAMETER, DEFAULT_VERTEX_DISTANCE, EYE, GRATING_APERTURE } from '../physics/constants'
+import { NORMAL_AXIAL_LENGTH, axialLengthFor, cornealPower, cornealRadiusFor } from '../physics/eye'
 import type { EyeSetup } from '../physics/eye'
 import type { BenchComponent, ComponentKind } from '../physics/types'
 import { cm, degToRad, mm, perMm } from '../physics/units'
@@ -29,6 +29,9 @@ export type ExperimentId =
   | 'eye-accommodation'
   | 'eye-glasses'
   | 'eye-ageing'
+  | 'eye-astigmatism'
+  | 'eye-chromatic'
+  | 'eye-spherical'
 
 export interface BenchView {
   /** Visible part of the rail, metres. */
@@ -236,7 +239,7 @@ export const DEFAULT_PRISM: PrismSetting = {
   light: 'red',
 }
 
-export type EyeChart = 'letters' | 'text' | 'face'
+export type EyeChart = 'letters' | 'text' | 'face' | 'fan'
 
 /** The schematic eye, its object and its glasses (lengths in metres, powers in dioptres). */
 export interface EyeSetting {
@@ -261,9 +264,32 @@ export interface EyeSetting {
   vertexDistance: number
   /** Age of a second, otherwise identical eye shown beside the first; null for none. */
   compareAge: number | null
-  /** When true the length, the cornea and the age of the eye are hidden from the student ("unknown eye"). */
+  /** When true the length, the cornea, its shape and the age of the eye are hidden from the student ("unknown eye"). */
   concealed: boolean
+  /** Radius of the cornea in the meridian at right angles to the first; null for a cornea with one radius. */
+  cornealRadiusCross: number | null
+  /** Direction of the first meridian, radians counter-clockwise from the horizontal as seen facing the eye. */
+  cornealMeridian: number
+  /** Cylinder of the glasses, dioptres, and its axis in radians. */
+  glassesCylinder: number
+  glassesAxis: number
+  /** Wavelength of the light on the chart; null for white light. */
+  wavelength: number | null
+  /** The indices of the eye follow the wavelength (chromatic aberration). */
+  dispersion: boolean
+  /** Real rays are traced instead of paraxial ones (spherical aberration). */
+  realRays: boolean
+  /** Ring stop in the pupil: inner radius of the open ring as a fraction of the pupil's radius; 0 for an open pupil. */
+  pupilZone: number
+  /** Asphericity Q of the cornea and of both lens surfaces. */
+  cornealAsphericity: number
+  lensAsphericity: number
+  /** Which view of the eye the scene shows. */
+  sceneView: EyeSceneView
 }
+
+export type EyeSceneView = 'side' | 'top' | 'both' | 'front'
+
 
 const ARC_MINUTE = degToRad(1 / 60)
 
@@ -283,9 +309,20 @@ export const DEFAULT_EYE: EyeSetting = {
   vertexDistance: DEFAULT_VERTEX_DISTANCE,
   compareAge: null,
   concealed: false,
+  cornealRadiusCross: null,
+  cornealMeridian: 0,
+  glassesCylinder: 0,
+  glassesAxis: 0,
+  wavelength: null,
+  dispersion: false,
+  realRays: false,
+  pupilZone: 0,
+  cornealAsphericity: 0,
+  lensAsphericity: 0,
+  sceneView: 'side',
 }
 
-export type EyeCondition = 'normal' | 'myopia' | 'hyperopia' | 'presbyopia'
+export type EyeCondition = 'normal' | 'myopia' | 'hyperopia' | 'presbyopia' | 'astigmatism'
 
 /** Refractive error of the myopia and hyperopia presets, dioptres. */
 export const CONDITION_ERROR = 3
@@ -294,7 +331,7 @@ export const PRESBYOPIA_AGE = 55
 
 /** What a condition sets on the eye; the rest of the eye is left as it is. */
 export function eyeCondition(condition: EyeCondition): Partial<EyeSetting> {
-  const normal = { axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius }
+  const normal = { axialLength: NORMAL_AXIAL_LENGTH, cornealRadius: EYE.cornealRadius, cornealRadiusCross: null, cornealMeridian: 0 }
   switch (condition) {
     case 'normal':
       return normal
@@ -304,6 +341,9 @@ export function eyeCondition(condition: EyeCondition): Partial<EyeSetting> {
       return { ...normal, axialLength: axialLengthFor(CONDITION_ERROR) }
     case 'presbyopia':
       return { ...normal, age: PRESBYOPIA_AGE }
+    case 'astigmatism':
+      // With the rule: the vertical meridian of the cornea is the steeper one.
+      return { ...normal, cornealRadiusCross: cornealRadiusFor(cornealPower(EYE.cornealRadius) + CONDITION_ASTIGMATISM) }
   }
 }
 
@@ -318,6 +358,15 @@ export function eyePreset(id: ExperimentId): EyeSetting | null {
     case 'eye-ageing':
       // Reading at 40 cm: in reach at 20, out of reach from about 54.
       return { ...DEFAULT_EYE, objectDistance: cm(40), chart: 'text', letterHeight: mm(2), fieldOfView: mm(2) }
+    case 'eye-astigmatism':
+      // A cornea 2 D steeper vertically than horizontally looks at a distant fan chart: 0.00 / −2.00 × 180.
+      return { ...DEFAULT_EYE, ...eyeCondition('astigmatism'), age: 25, objectDistance: null, chart: 'fan', letterAngle: 20 * ARC_MINUTE, fieldOfView: mm(2), sceneView: 'both' }
+    case 'eye-chromatic':
+      // A normal eye, held relaxed so that it cannot hide a positive lens, in white light with its dispersion.
+      return { ...DEFAULT_EYE, age: 25, objectDistance: null, letterAngle: 20 * ARC_MINUTE, fieldOfView: mm(2), heldAccommodation: 0, pupilDiameter: mm(6), dispersion: true }
+    case 'eye-spherical':
+      // The schematic eye with spherical surfaces, relaxed, traced with real rays.
+      return { ...DEFAULT_EYE, age: 25, objectDistance: null, letterAngle: 20 * ARC_MINUTE, fieldOfView: mm(2), heldAccommodation: 0, pupilDiameter: mm(6), realRays: true }
     default:
       return null
   }
@@ -334,7 +383,15 @@ export function toEyeSetup(eye: EyeSetting, age: number = eye.age): EyeSetup {
     letterHeight: eye.letterHeight,
     letterAngle: eye.letterAngle,
     heldAccommodation: eye.heldAccommodation,
-    glasses: eye.glassesOn ? { power: eye.glassesPower, vertexDistance: eye.vertexDistance } : null,
+    glasses: eye.glassesOn ? { power: eye.glassesPower, vertexDistance: eye.vertexDistance, cylinder: eye.glassesCylinder, axis: eye.glassesAxis } : null,
+    cornealRadiusCross: eye.cornealRadiusCross,
+    cornealMeridian: eye.cornealMeridian,
+    light: eye.wavelength,
+    dispersion: eye.dispersion,
+    realRays: eye.realRays,
+    pupilZone: eye.pupilZone,
+    cornealAsphericity: eye.cornealAsphericity,
+    lensAsphericity: eye.lensAsphericity,
   }
 }
 

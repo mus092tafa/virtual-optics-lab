@@ -111,8 +111,20 @@ be held. Myopia, hyperopia and presbyopia are settings of the length, the cornea
 Glasses of −10 to +10 D can be worn at a vertex distance of 0–16 mm. Beside the eye, a test chart
 (letters, text or a face) is shown as the eye images it: at its size on the retina and blurred by a
 disc that follows from the pupil and the defocus. Measurements are shown with and without the
-glasses, and for a second eye of another age. Astigmatism, aberrations, diffraction at the pupil
-and the processing by the retina and brain are not modelled.
+glasses, and for a second eye of another age.
+
+Three defects of real eyes can be switched on, each from its own equations. *Astigmatism*: a second
+corneal radius at right angles to the first gives two focal lines instead of a focus, an elliptical
+blur and a refraction written as sphere / cylinder × axis; the glasses carry a cylinder and an axis
+to correct it, and a fan chart shows its direction. *Chromatic aberration*: the indices of the eye
+follow the wavelength, so blue is focused in front of red (0.85 D between 486 and 656 nm); the chart
+can be lit with one wavelength or with white light, whose image then has coloured edges. *Spherical
+aberration*: the surfaces become conicoids and the rays are traced with Snell's law instead of
+paraxially; a ring stop in the pupil lets one zone through at a time, so that its focus can be
+found with a lens. The eye can be seen from
+the side, from above and from the front, and the beam is shown in cross-section at planes around the
+retina. Aberrations off the axis, diffraction at the pupil and the processing by the retina and
+brain are not modelled.
 
 ### Experiments
 
@@ -135,6 +147,9 @@ and the processing by the retina and brain are not modelled.
 17. The eye: accommodation and the near point
 18. The eye: myopia, hyperopia and the glasses that correct them
 19. The eye: ageing and reading glasses
+20. The eye: astigmatism and the cylinder lens that corrects it
+21. The eye: chromatic aberration, from the glasses found in blue and in red light
+22. The eye: spherical aberration, zone by zone, from the glasses found through a ring stop
 
 Each experiment has a guide and a lab notebook. The notebook turns recorded measurements into a
 result (for example f from do and di, or λ from the fringe spacing) and, on request, compares it
@@ -201,8 +216,11 @@ src/
     polarization.ts   linear polarisers, Malus's law          │
     michelson.ts      two-beam interference in the interferometer┘
     spectrum.ts       Planck spectrum, CIE colour matching
-    eye.ts            schematic eye: powers, accommodation, age, blur on the retina
-    spectacles.ts     vergence through a spectacle lens, correcting power
+    eye.ts            schematic eye: powers, accommodation, age, the light on the retina
+    astigmatism.ts    paraxial rays in two meridians: toric surfaces, cylinder lenses
+    ocularDispersion.ts  indices of the eye's media against wavelength
+    eyeRays.ts        exact rays through conicoid surfaces (spherical aberration)
+    spectacles.ts     vergence through a spectacle lens, correcting power, cylinders
     optics.ts         system solver: bench layout -> light at the screen
     __tests__/        unit tests
   state/          lab state, actions, presets, demonstration sweeps
