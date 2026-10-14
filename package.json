@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "build:student": "tsc -b && vite build --mode student --outDir dist-student",
+    "build:site": "npm run build:student && rm -rf dist-site && cp -r website dist-site && cp -r dist-student dist-site/lab",
     "lint": "oxlint",
     "preview": "vite preview",
     "test": "vitest run",

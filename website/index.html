@@ -1,0 +1,862 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Virtual Optics Laboratory</title>
+<meta name="description" content="A virtual optical bench for engineering students: 22 experiments whose every result is calculated from the physics. In the browser and as a Windows app with teacher and student editions.">
+<meta name="theme-color" content="#0b0f14">
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&family=Schibsted+Grotesk:wght@500;600&display=swap">
+<style>
+/* Layout: the plate of the eye stays fixed behind the page; a floating pill nav; each section is a
+   glass pane over a veil that darkens as the reader scrolls. Colours are the laboratory app's own. */
+:root {
+  --bg: #0b0f14;
+  --panel: rgba(18, 24, 32, 0.74);
+  --panel-solid: #121820;
+  --panel-2: #171f29;
+  --line: #263140;
+  --line-soft: #1c2530;
+  --text: #dbe4ee;
+  --muted: #8494a7;
+  --faint: #5b6a7c;
+  --accent: #4da3ff;
+  --accent-ink: #04111f;
+  --beam: #e2c7a5;
+  --glass: rgba(219, 228, 238, 0.08);
+
+  --t-surfaces: #f2b441;
+  --t-imaging: #4da3ff;
+  --t-beams: #ff7366;
+  --t-waves: #a78bfa;
+  --t-polarisation: #2dd4bf;
+  --t-eye: #7bd88f;
+
+  --display: 'Schibsted Grotesk', Inter, 'Segoe UI', system-ui, sans-serif;
+  --body: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --mono: 'JetBrains Mono', ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+img { max-width: 100%; display: block; }
+a { color: inherit; }
+sub { font-size: 0.72em; line-height: 0; }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+
+.wrap {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: max(16px, 4vw);
+}
+
+/* ---------- The plate behind everything ---------- */
+.plate {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: var(--bg) url('assets/hero-2560.webp') 58% 45% / cover no-repeat;
+  animation: settle 2.4s var(--ease) both;
+}
+@media (max-width: 900px) {
+  .plate { background-image: url('assets/hero-1280.webp'); }
+}
+@keyframes settle { from { transform: scale(1.04); } }
+
+.veil {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: var(--bg);
+  opacity: calc(var(--veil, 0) * 0.86);
+}
+
+/* ---------- Floating navigation ---------- */
+.nav {
+  position: fixed;
+  top: calc(14px + env(safe-area-inset-top, 0px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  max-width: calc(100% - 32px);
+}
+.nav-pill {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(13, 18, 24, 0.66);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid var(--glass);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.nav-pill::-webkit-scrollbar { display: none; }
+.nav a {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  padding: 9px 16px;
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+.nav a:hover, .nav a[aria-current='true'] { color: var(--text); }
+.nav a.brand { display: grid; place-items: center; padding: 6px 10px; }
+.nav a.brand img { width: 24px; height: 24px; border-radius: 6px; }
+.glider {
+  position: absolute;
+  z-index: 0;
+  top: 6px;
+  bottom: 6px;
+  left: 0;
+  width: 0;
+  border-radius: 999px;
+  background: var(--glass);
+  border: 1px solid var(--glass);
+  transition: transform 0.45s var(--ease), width 0.45s var(--ease);
+}
+.glider::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: 50%;
+  width: 18px;
+  height: 3px;
+  margin-left: -9px;
+  border-radius: 0 0 3px 3px;
+  background: var(--accent);
+  box-shadow: 0 0 10px var(--accent);
+}
+@media (max-width: 560px) {
+  .nav a { padding: 8px 11px; font-size: 13px; }
+}
+
+/* ---------- Shared type ---------- */
+.eyebrow {
+  margin: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--beam);
+}
+h2 {
+  margin: 12px 0 0;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(2.2rem, 5vw, 4rem);
+  line-height: 1;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+h3 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  text-wrap: balance;
+}
+.lead { margin: 0; max-width: 60ch; color: var(--muted); font-size: 1.06rem; }
+.eq {
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--beam);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Buttons ---------- */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+  padding: 5px 5px 5px 22px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
+  font-size: 15px;
+  text-decoration: none;
+  transition: gap 0.3s var(--ease), box-shadow 0.3s;
+  box-shadow: 0 8px 30px rgba(77, 163, 255, 0.25);
+}
+.btn-primary .knob {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--bg);
+  color: var(--accent);
+  transition: transform 0.3s var(--ease);
+}
+.btn-primary:hover { gap: 18px; box-shadow: 0 10px 40px rgba(77, 163, 255, 0.4); }
+.btn-primary:hover .knob { transform: scale(1.08); }
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-radius: 999px;
+  border: 1px solid rgba(219, 228, 238, 0.18);
+  color: var(--text);
+  font-weight: 500;
+  font-size: 15px;
+  text-decoration: none;
+  transition: border-color 0.2s, background 0.2s;
+}
+.btn-ghost:hover { border-color: rgba(219, 228, 238, 0.4); background: var(--glass); }
+
+/* ---------- Hero ---------- */
+.hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 100svh;
+  display: grid;
+  align-items: end;
+  padding-block: 120px clamp(28px, 4vw, 56px);
+}
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(to top, rgba(11, 15, 20, 0.94) 0%, rgba(11, 15, 20, 0.6) 26%, rgba(11, 15, 20, 0) 52%),
+    linear-gradient(to bottom, rgba(11, 15, 20, 0.5), rgba(11, 15, 20, 0) 20%);
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 24px;
+  align-items: end;
+}
+.hero-title { grid-column: 1 / span 7; min-width: 0; }
+.hero-side { grid-column: 8 / span 5; justify-self: end; min-width: 0; display: grid; gap: 22px; padding-bottom: 1.2rem; }
+h1 {
+  margin: 14px 0 0;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: clamp(4rem, 10.6vw, 12rem);
+  line-height: 0.86;
+  letter-spacing: -0.065em;
+  color: #e6edf4;
+}
+h1 .w { display: inline-block; animation: rise 1s var(--ease) both; animation-delay: calc(var(--i) * 90ms + 150ms); }
+h1 .w:not(:last-child) { margin-right: 0.2em; }
+@media (min-width: 1001px) { h1 .w { display: block; } }
+.focus {
+  display: inline-block;
+  width: 0.1em;
+  height: 0.1em;
+  margin-left: 0.04em;
+  border-radius: 50%;
+  background: #fff4e4;
+  box-shadow: 0 0 0.08em 0.02em #f6c08a, 0 0 0.45em 0.12em rgba(226, 130, 70, 0.55);
+  animation: glow 1.2s var(--ease) 0.9s both;
+}
+@keyframes rise { from { transform: translateY(0.22em); opacity: 0; } }
+@keyframes glow { from { opacity: 0; transform: scale(0.3); } }
+.hero-side p { margin: 0; max-width: 40ch; color: rgba(219, 228, 238, 0.86); font-size: 1.05rem; line-height: 1.45; }
+.hero-side .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.hero-side > * { animation: rise 1s var(--ease) both; }
+.hero-side > :nth-child(1) { animation-delay: 0.45s; }
+.hero-side > :nth-child(2) { animation-delay: 0.6s; }
+@media (max-width: 1000px) {
+  .hero-title, .hero-side { grid-column: 1 / -1; }
+  .hero-side { padding-bottom: 0; justify-self: start; }
+  h1 { font-size: min(17.5vw, 9rem); }
+}
+
+/* ---------- Sections ---------- */
+.section { padding-block: clamp(80px, 11vw, 150px) 0; scroll-margin-top: 70px; }
+.section:last-of-type { padding-bottom: clamp(80px, 11vw, 150px); }
+.section-head {
+  display: grid;
+  grid-template-columns: minmax(0, 6fr) minmax(0, 6fr);
+  gap: 24px 48px;
+  align-items: end;
+  margin-bottom: clamp(32px, 5vw, 56px);
+}
+@media (max-width: 860px) { .section-head { grid-template-columns: minmax(0, 1fr); } }
+
+.pane {
+  background: var(--panel);
+  border: 1px solid var(--line-soft);
+  border-radius: 20px;
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+/* About */
+.principles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.principle { padding: 30px 30px 28px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.principle + .principle { border-left: 1px solid var(--line); }
+.principle h3 { font-size: 1.3rem; }
+.principle p { margin: 0; color: var(--muted); }
+.principle .eq { margin-top: 6px; padding-top: 14px; border-top: 1px dashed var(--line); }
+@media (max-width: 860px) {
+  .principles { grid-template-columns: minmax(0, 1fr); }
+  .principle + .principle { border-left: 0; border-top: 1px solid var(--line); }
+}
+.facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 28px;
+  margin: 22px 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--mono);
+  font-size: 13px;
+  color: var(--muted);
+}
+.facts b { color: var(--text); font-weight: 500; }
+
+/* Editions */
+.editions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 860px) { .editions { grid-template-columns: minmax(0, 1fr); } }
+.edition { padding: 30px; display: grid; gap: 20px; align-content: start; }
+.edition .tag {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.edition .tag i { width: 7px; height: 7px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 8px var(--dot); }
+.edition h3 { font-size: clamp(1.5rem, 2.6vw, 2rem); line-height: 1.1; }
+.edition ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; }
+.edition li { position: relative; padding-left: 22px; color: var(--muted); }
+.edition li::before {
+  content: '';
+  position: absolute;
+  left: 2px;
+  top: 0.62em;
+  width: 8px;
+  height: 1.5px;
+  background: var(--dot);
+}
+.edition li b { color: var(--text); font-weight: 500; }
+.edition .more { justify-self: start; color: var(--text); font-weight: 500; text-underline-offset: 4px; text-decoration-color: rgba(219, 228, 238, 0.3); }
+.edition .more:hover { text-decoration-color: var(--text); }
+
+/* Experiments */
+.topics { columns: 3 330px; column-gap: 20px; }
+.topic { break-inside: avoid; margin-bottom: 20px; padding: 22px 22px 10px; }
+.topic-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.topic-head i { width: 9px; height: 9px; border-radius: 50%; background: var(--topic); box-shadow: 0 0 10px var(--topic); flex: none; }
+.topic-head h3 { font-size: 1.12rem; }
+.topic-head span { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.topic ol { margin: 0; padding: 0; list-style: none; }
+.topic li {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  padding-block: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+.topic li:first-child { border-top: 0; }
+.num {
+  display: grid;
+  place-items: center;
+  height: 22px;
+  border-radius: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--topic);
+  background: color-mix(in srgb, var(--topic) 15%, transparent);
+  font-variant-numeric: tabular-nums;
+}
+.topic li > div { display: grid; gap: 3px; min-width: 0; }
+.topic li strong { font-weight: 600; font-size: 15px; }
+.topic li p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+.topic li .eq { margin-top: 3px; overflow-wrap: anywhere; }
+[data-topic='surfaces'] { --topic: var(--t-surfaces); }
+[data-topic='imaging'] { --topic: var(--t-imaging); }
+[data-topic='beams'] { --topic: var(--t-beams); }
+[data-topic='waves'] { --topic: var(--t-waves); }
+[data-topic='polarisation'] { --topic: var(--t-polarisation); }
+[data-topic='eye'] { --topic: var(--t-eye); }
+
+/* Web lab */
+.lab-cta { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin-top: 26px; }
+.lab-cta small { color: var(--faint); font-size: 13px; max-width: 46ch; }
+.viewer { overflow: hidden; border-radius: 18px; border: 1px solid var(--line); background: var(--panel-solid); box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5); }
+.viewer-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 10px 12px 10px 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+.tabs { display: flex; gap: 4px; padding: 3px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); }
+.tabs button {
+  appearance: none;
+  border: 0;
+  padding: 6px 12px;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font: 500 13px/1.2 var(--body);
+  cursor: pointer;
+}
+.tabs button:hover { color: var(--text); }
+.tabs button[aria-selected='true'] { background: rgba(77, 163, 255, 0.14); color: var(--text); }
+.viewer-bar .eq { margin-left: auto; color: var(--muted); font-size: 12px; min-width: 0; }
+.viewer-bar .eq b { color: var(--beam); font-weight: 500; }
+@media (max-width: 760px) { .viewer-bar .eq { margin-left: 0; flex-basis: 100%; } }
+.viewer img { width: 100%; height: auto; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left; }
+
+/* Download */
+.downloads { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+@media (max-width: 860px) { .downloads { grid-template-columns: minmax(0, 1fr); } }
+.download { padding: 30px; display: grid; gap: 18px; align-content: start; }
+.download h3 { font-size: 1.6rem; display: flex; align-items: center; gap: 10px; }
+.download h3 i { width: 9px; height: 9px; border-radius: 50%; background: var(--dot); box-shadow: 0 0 10px var(--dot); }
+.download p { margin: 0; color: var(--muted); }
+.download .actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.download .file { font-family: var(--mono); font-size: 12px; color: var(--faint); overflow-wrap: anywhere; }
+.btn-primary svg, .btn-ghost svg { flex: none; }
+.notes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px 32px;
+  align-items: center;
+  margin-top: 20px;
+  padding: 18px 22px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.notes p { margin: 0; }
+.notes b { color: var(--text); font-weight: 500; }
+.notes a { color: var(--text); font-weight: 500; text-underline-offset: 4px; white-space: nowrap; }
+@media (max-width: 760px) { .notes { grid-template-columns: minmax(0, 1fr); } }
+
+/* Footer */
+footer { border-top: 1px solid var(--line); background: rgba(11, 15, 20, 0.86); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 16px 32px; align-items: center; justify-content: space-between; padding-block: 28px; font-size: 14px; color: var(--muted); }
+footer .who { display: flex; align-items: center; gap: 12px; }
+footer .who img { width: 28px; height: 28px; border-radius: 7px; }
+footer nav { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+footer nav a { text-decoration: none; }
+footer nav a:hover { color: var(--text); }
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<div class="plate" aria-hidden="true"></div>
+<div class="veil" aria-hidden="true"></div>
+
+<header class="nav">
+  <nav class="nav-pill" aria-label="Sections">
+    <span class="glider" aria-hidden="true"></span>
+    <a class="brand" href="#top" data-spy="top" aria-label="Virtual Optics Laboratory, back to the top"><img src="assets/logo.svg" alt=""></a>
+    <a href="#about" data-spy="about">About</a>
+    <a href="#editions" data-spy="editions">Editions</a>
+    <a href="#experiments" data-spy="experiments">Experiments</a>
+    <a href="#lab" data-spy="lab">Web lab</a>
+    <a href="#download" data-spy="download">Download</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero" id="top">
+    <div class="wrap hero-grid">
+      <div class="hero-title">
+        <p class="eyebrow">Virtual Optics Laboratory · for engineering students</p>
+        <h1 aria-label="Optics Lab"><span class="w" style="--i:0">Optics</span><span class="w" style="--i:1">Lab<span class="focus" aria-hidden="true"></span></span></h1>
+      </div>
+      <div class="hero-side">
+        <p>A virtual optical bench where students run 22 experiments and measure what the physics predicts. Every position, blur, colour and fringe on the screen is calculated from the layout of the bench.</p>
+        <div class="actions">
+          <a class="btn-primary" href="lab/">Open the web lab
+            <span class="knob"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </a>
+          <a class="btn-ghost" href="#download">Download for Windows</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="about">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">About the software</p>
+          <h2>Nothing on the screen is drawn by hand.</h2>
+        </div>
+        <p class="lead">Students build an experiment on a virtual bench from a laser or a lamp, lenses, mirrors, slits, gratings, polarisers and a screen. The lab works out what reaches the screen from where each part stands. Move the screen out of the image plane and the image blurs. Narrow a slit and the diffraction pattern widens.</p>
+      </div>
+
+      <div class="pane principles">
+        <div class="principle">
+          <h3>Calculated from the bench</h3>
+          <p>Positions, sizes, blur, brightness, colour and fringe spacing all come from the physics, never from a drawing.</p>
+          <div class="eq">1/f = 1/d<sub>o</sub> + 1/d<sub>i</sub></div>
+        </div>
+        <div class="principle">
+          <h3>The right model for the setup</h3>
+          <p>The solver uses geometric rays, Gaussian beams or wave optics, depending on what is on the rail. When a setup is outside what a model covers, the lab says so.</p>
+          <div class="eq">w(z) = w₀√(1 + (z/z<sub>R</sub>)²)</div>
+        </div>
+        <div class="principle">
+          <h3>A notebook that checks the work</h3>
+          <p>Students record their readings, the notebook fits the straight line, and the result is compared with theory, uncertainty included.</p>
+          <div class="eq">λ = Δy · d / L</div>
+        </div>
+      </div>
+
+      <ul class="facts">
+        <li><b>22</b> experiments</li>
+        <li><b>6</b> topics</li>
+        <li><b>4</b> apparatus: optical bench, surfaces, interferometer, eye</li>
+        <li>Windows app and web lab</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="editions">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Two editions</p>
+          <h2>One for the teacher, one for the class.</h2>
+        </div>
+        <p class="lead">Both editions contain the whole laboratory. They differ in what they do with exams, so a student’s laptop never holds the answer key.</p>
+      </div>
+
+      <div class="editions">
+        <article class="pane edition" style="--dot: var(--beam)">
+          <span class="tag"><i></i>Teacher edition</span>
+          <h3>Write the exam, run the room, mark the answers.</h3>
+          <ul>
+            <li><b>The whole laboratory</b>, all 22 experiments.</li>
+            <li><b>Write exams</b> with written answers, multiple choice, or measurements on the virtual bench with the calculated values withheld.</li>
+            <li><b>Open a classroom</b> over the local Wi-Fi with no internet. The students’ laptops find it, and the clock runs from yours.</li>
+            <li><b>Mark the answers</b>, export the results as PDF and CSV, and keep every sitting in the records on your laptop.</li>
+          </ul>
+          <a class="more" href="#download">Download the teacher edition</a>
+        </article>
+        <article class="pane edition" style="--dot: var(--accent)">
+          <span class="tag"><i></i>Student edition</span>
+          <h3>Practise on the bench, then sit the exam.</h3>
+          <ul>
+            <li><b>The whole laboratory</b>, all 22 experiments, with guides and the notebook.</li>
+            <li><b>Join the classroom</b>: find the teacher’s laptop on the network and sit the exam.</li>
+            <li><b>Sit an exam from a file</b> on the same computer, without the network.</li>
+            <li><b>No exam-writing or marking code</b> is built into it, and the answer key never reaches it.</li>
+          </ul>
+          <a class="more" href="#download">Download the student edition</a>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="experiments">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Experiments</p>
+          <h2>22 experiments in six topics.</h2>
+        </div>
+        <p class="lead">Each experiment comes with a guide, the equations it rests on, a notebook for the readings and a demonstration that runs it for you. The numbers are the ones the app uses.</p>
+      </div>
+
+      <div class="topics">
+        <section class="pane topic" data-topic="surfaces" aria-labelledby="t-surfaces">
+          <div class="topic-head"><i></i><h3 id="t-surfaces">Rays &amp; Surfaces</h3><span>4</span></div>
+          <ol>
+            <li><span class="num">1</span><div><strong>Law of Reflection</strong><p>Tilt the mirror and read both angles from the protractor.</p><span class="eq">θ<sub>r</sub> = θ<sub>i</sub></span></div></li>
+            <li><span class="num">2</span><div><strong>Refraction: Snell’s Law</strong><p>Find the index of the second medium from how far the ray bends.</p><span class="eq">n₁ sin θ₁ = n₂ sin θ₂</span></div></li>
+            <li><span class="num">14</span><div><strong>Brewster’s Angle</strong><p>Find the angle where reflected p-polarised light vanishes.</p><span class="eq">tan θ<sub>B</sub> = n₂ / n₁</span></div></li>
+            <li><span class="num">15</span><div><strong>Prism: Minimum Deviation</strong><p>Measure the index of the glass and watch it change with wavelength.</p><span class="eq">n = sin((A + δ<sub>min</sub>)/2) / sin(A/2)</span></div></li>
+          </ol>
+        </section>
+
+        <section class="pane topic" data-topic="imaging" aria-labelledby="t-imaging">
+          <div class="topic-head"><i></i><h3 id="t-imaging">Lenses &amp; Mirrors</h3><span>5</span></div>
+          <ol>
+            <li><span class="num">3</span><div><strong>Convex Lens: Focal Length</strong><p>Find f from the object and image distances.</p><span class="eq">1/f = 1/d<sub>o</sub> + 1/d<sub>i</sub></span></div></li>
+            <li><span class="num">4</span><div><strong>Lens Magnification</strong><p>See how image size and orientation follow the object position.</p><span class="eq">m = −d<sub>i</sub> / d<sub>o</sub></span></div></li>
+            <li><span class="num">8</span><div><strong>Tungsten Light Source</strong><p>A broadband, extended source in an optical system.</p><span class="eq">black body, T = 2900 K</span></div></li>
+            <li><span class="num">10</span><div><strong>Concave Lens: Focal Length</strong><p>Measure a lens whose image cannot be caught on a screen.</p><span class="eq">f &lt; 0, virtual image</span></div></li>
+            <li><span class="num">16</span><div><strong>Concave Mirror: Focal Length</strong><p>Find the focal length and radius of curvature of a mirror.</p><span class="eq">f = R / 2</span></div></li>
+          </ol>
+        </section>
+
+        <section class="pane topic" data-topic="beams" aria-labelledby="t-beams">
+          <div class="topic-head"><i></i><h3 id="t-beams">Laser Beams</h3><span>1</span></div>
+          <ol>
+            <li><span class="num">5</span><div><strong>He-Ne Laser Through a Lens</strong><p>Follow how a Gaussian beam spreads and how a lens focuses it.</p><span class="eq">w(z) = w₀√(1 + (z/z<sub>R</sub>)²)</span></div></li>
+          </ol>
+        </section>
+
+        <section class="pane topic" data-topic="waves" aria-labelledby="t-waves">
+          <div class="topic-head"><i></i><h3 id="t-waves">Diffraction &amp; Interference</h3><span>5</span></div>
+          <ol>
+            <li><span class="num">6</span><div><strong>Single-Slit Diffraction</strong><p>A narrower slit gives a wider pattern.</p><span class="eq">a sin θ = mλ</span></div></li>
+            <li><span class="num">7</span><div><strong>Double-Slit Interference</strong><p>Measure the laser’s wavelength from the fringe spacing.</p><span class="eq">Δy = λL / d</span></div></li>
+            <li><span class="num">11</span><div><strong>Diffraction Grating</strong><p>Measure the wavelength from the positions of the orders.</p><span class="eq">d sin θ<sub>m</sub> = mλ</span></div></li>
+            <li><span class="num">12</span><div><strong>Circular Aperture: Airy Pattern</strong><p>Find the aperture’s diameter from its first dark ring.</p><span class="eq">sin θ = 1.22 λ / D</span></div></li>
+            <li><span class="num">9</span><div><strong>Michelson Interferometer</strong><p>Count the fringes that pass while one mirror moves.</p><span class="eq">λ = 2Δd / N</span></div></li>
+          </ol>
+        </section>
+
+        <section class="pane topic" data-topic="polarisation" aria-labelledby="t-polarisation">
+          <div class="topic-head"><i></i><h3 id="t-polarisation">Polarisation</h3><span>1</span></div>
+          <ol>
+            <li><span class="num">13</span><div><strong>Malus’s Law</strong><p>Turn the analyser and measure the light it lets through.</p><span class="eq">I = I₀ cos²θ</span></div></li>
+          </ol>
+        </section>
+
+        <section class="pane topic" data-topic="eye" aria-labelledby="t-eye">
+          <div class="topic-head"><i></i><h3 id="t-eye">The Eye</h3><span>6</span></div>
+          <ol>
+            <li><span class="num">17</span><div><strong>Accommodation and the Near Point</strong><p>The lens changes shape to focus near and far.</p><span class="eq">near point at 1/(A − K)</span></div></li>
+            <li><span class="num">18</span><div><strong>Myopia, Hyperopia and Glasses</strong><p>Find the glasses that move the focus onto the retina.</p><span class="eq">F<sub>s</sub> = K / (1 + dK)</span></div></li>
+            <li><span class="num">19</span><div><strong>Ageing and Reading Glasses</strong><p>The near point recedes as the lens stiffens with age.</p><span class="eq">A = 18.5 − 0.30 × age  (D)</span></div></li>
+            <li><span class="num">20</span><div><strong>Astigmatism and the Cylinder Lens</strong><p>Two corneal curvatures, two focal lines, one cylinder to correct them.</p><span class="eq">P = (n′ − 1) / r per meridian</span></div></li>
+            <li><span class="num">21</span><div><strong>Chromatic Aberration</strong><p>The eye focuses blue light in front of red.</p><span class="eq">0.85 D between 486 and 656 nm</span></div></li>
+            <li><span class="num">22</span><div><strong>Spherical Aberration and the Pupil</strong><p>Rays through the edge of the pupil focus in front of those near the axis.</p><span class="eq">n sin i = n′ sin i′, traced exactly</span></div></li>
+          </ol>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="lab">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Web lab</p>
+          <h2>Open the lab in your browser.</h2>
+        </div>
+        <div>
+          <p class="lead">The web lab has all 22 experiments, the guides and the notebook, and needs no installation. Exams run only in the Windows app, because the classroom works over the local network.</p>
+          <div class="lab-cta">
+            <a class="btn-primary" href="lab/">Start experimenting
+              <span class="knob"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <figure class="viewer" style="margin: 0">
+        <div class="viewer-bar">
+          <div class="tabs" role="tablist" aria-label="Screenshots of the lab">
+            <button type="button" role="tab" id="shot-slit" aria-selected="true" aria-controls="shot">Double slit</button>
+            <button type="button" role="tab" id="shot-eye" aria-selected="false" aria-controls="shot">The eye</button>
+            <button type="button" role="tab" id="shot-prism" aria-selected="false" aria-controls="shot">Prism</button>
+          </div>
+          <figcaption class="eq" id="shot-caption">Experiment 7 · d = 0.25 mm, L = 110 cm, λ = 632.8 nm → <b>Δy = λL/d = 2.78 mm</b></figcaption>
+        </div>
+        <img id="shot" role="tabpanel" src="assets/lab-double-slit.webp" width="1800" height="1125" loading="lazy" alt="The optical bench with a He-Ne laser, a double slit and a screen; the screen shows red interference fringes and their intensity profile.">
+      </figure>
+    </div>
+  </section>
+
+  <section class="section" id="download">
+    <div class="wrap">
+      <div class="section-head">
+        <div>
+          <p class="eyebrow">Download · <span id="version">latest release</span></p>
+          <h2>Get the Windows app.</h2>
+        </div>
+        <p class="lead">For 64-bit Windows 10 and 11. The installer needs no administrator rights and opens exam files with a double-click. The portable file runs without installing anything.</p>
+      </div>
+
+      <div class="downloads">
+        <article class="pane download" style="--dot: var(--beam)">
+          <h3><i></i>Teacher edition</h3>
+          <p>The laboratory, writing exams, the classroom and marking.</p>
+          <div class="actions">
+            <a class="btn-primary" data-asset="Teacher-setup" href="https://github.com/mus092tafa/virtual-optics-lab/releases/latest">Installer
+              <span class="knob"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></svg></span>
+            </a>
+            <a class="btn-ghost" data-asset="Teacher-portable" href="https://github.com/mus092tafa/virtual-optics-lab/releases/latest">Portable</a>
+          </div>
+          <span class="file" data-file="Teacher">VirtualOpticsLab-Teacher-…-setup.exe</span>
+        </article>
+        <article class="pane download" style="--dot: var(--accent)">
+          <h3><i></i>Student edition</h3>
+          <p>The laboratory, joining and sitting exams.</p>
+          <div class="actions">
+            <a class="btn-primary" data-asset="Student-setup" href="https://github.com/mus092tafa/virtual-optics-lab/releases/latest">Installer
+              <span class="knob"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 4v12M6 11l6 6 6-6M5 20h14"/></svg></span>
+            </a>
+            <a class="btn-ghost" data-asset="Student-portable" href="https://github.com/mus092tafa/virtual-optics-lab/releases/latest">Portable</a>
+          </div>
+          <span class="file" data-file="Student">VirtualOpticsLab-Student-…-setup.exe</span>
+        </article>
+      </div>
+
+      <div class="pane notes">
+        <p>The files are not code-signed, so Windows SmartScreen asks once before the first start. Choose <b>More info</b>, then <b>Run anyway</b>.</p>
+        <a href="https://github.com/mus092tafa/virtual-optics-lab/releases">All versions on GitHub</a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <div class="who"><img src="assets/logo.svg" alt=""><span>Virtual Optics Laboratory · by Mustafa Mawla</span></div>
+    <nav aria-label="Documents">
+      <a href="https://github.com/mus092tafa/virtual-optics-lab/blob/main/docs/app-guide.pdf">User guide (PDF)</a>
+      <a href="https://github.com/mus092tafa/virtual-optics-lab/blob/main/docs/PHYSICS.md">The physics</a>
+      <a href="https://github.com/mus092tafa/virtual-optics-lab/blob/main/docs/EXAMS.md">Exams</a>
+      <a href="https://github.com/mus092tafa/virtual-optics-lab">Source on GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script>
+(() => {
+  // The veil darkens the plate as the reader leaves the hero.
+  const root = document.documentElement
+  let queued = false
+  const paint = () => {
+    queued = false
+    const v = Math.min(1, Math.max(0, window.scrollY / (window.innerHeight * 0.85)))
+    root.style.setProperty('--veil', v.toFixed(3))
+  }
+  window.addEventListener('scroll', () => { if (!queued) { queued = true; requestAnimationFrame(paint) } }, { passive: true })
+  paint()
+
+  // The glider follows the section in view.
+  const pill = document.querySelector('.nav-pill')
+  const glider = pill.querySelector('.glider')
+  const links = [...pill.querySelectorAll('a[data-spy]')]
+  let current = null
+  const moveTo = (id) => {
+    const link = links.find((a) => a.dataset.spy === id)
+    if (!link) return
+    links.forEach((a) => a.setAttribute('aria-current', String(a === link)))
+    glider.style.width = link.offsetWidth + 'px'
+    glider.style.transform = `translateX(${link.offsetLeft}px)`
+    if (link.offsetLeft < pill.scrollLeft || link.offsetLeft + link.offsetWidth > pill.scrollLeft + pill.clientWidth) {
+      pill.scrollTo({ left: link.offsetLeft - 12, behavior: 'smooth' })
+    }
+    current = id
+  }
+  const sections = links.map((a) => document.getElementById(a.dataset.spy)).filter(Boolean)
+  const pick = () => {
+    const line = window.innerHeight * 0.4
+    let id = 'top'
+    for (const s of sections) if (s.getBoundingClientRect().top <= line) id = s.id
+    if (id !== current) moveTo(id)
+  }
+  window.addEventListener('scroll', () => requestAnimationFrame(pick), { passive: true })
+  window.addEventListener('resize', () => { current = null; pick() })
+  document.fonts?.ready.then(() => { current = null; pick() })
+  pick()
+
+  // Screenshots of the lab, with the numbers each one shows.
+  const shots = {
+    'shot-slit': {
+      src: 'assets/lab-double-slit.webp',
+      alt: 'The optical bench with a He-Ne laser, a double slit and a screen; the screen shows red interference fringes and their intensity profile.',
+      caption: 'Experiment 7 · d = 0.25 mm, L = 110 cm, λ = 632.8 nm → <b>Δy = λL/d = 2.78 mm</b>',
+    },
+    'shot-eye': {
+      src: 'assets/lab-eye.webp',
+      alt: 'The schematic eye in side and top view with two focal lines, the fan chart as the eye sees it, and cross-sections of the beam around the retina.',
+      caption: 'Experiment 20 · corneal radii 7.45 and 7.80 mm → <b>44.7 D and 42.7 D, two focal lines</b>',
+    },
+    'shot-prism': {
+      src: 'assets/lab-prism.webp',
+      alt: 'A red ray refracted through a 60° glass prism, with the deviation and the refractive index read out beside it.',
+      caption: 'Experiment 15 · BK7, A = 60°, θ₁ = 60°, n = 1.5151 → <b>δ = 40.06°</b>',
+    },
+  }
+  const img = document.getElementById('shot')
+  const caption = document.getElementById('shot-caption')
+  const tabs = [...document.querySelectorAll('.tabs [role=tab]')]
+  const select = (tab) => {
+    tabs.forEach((t) => t.setAttribute('aria-selected', String(t === tab)))
+    const shot = shots[tab.id]
+    img.src = shot.src
+    img.alt = shot.alt
+    caption.innerHTML = shot.caption
+  }
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => select(tab))
+    tab.addEventListener('keydown', (e) => {
+      const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+      if (!step) return
+      const next = tabs[(i + step + tabs.length) % tabs.length]
+      next.focus()
+      select(next)
+    })
+  })
+
+  // Point the download buttons at the files of the latest release. Without the GitHub API they keep
+  // pointing at the release page, which lists the same files.
+  fetch('https://api.github.com/repos/mus092tafa/virtual-optics-lab/releases/latest')
+    .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+    .then((release) => {
+      const find = (edition, kind) => release.assets.find((a) => a.name.includes(`-${edition}-`) && a.name.endsWith(`-${kind}.exe`))
+      document.querySelectorAll('[data-asset]').forEach((link) => {
+        const [edition, kind] = link.dataset.asset.split('-')
+        const asset = find(edition, kind)
+        if (asset) link.href = asset.browser_download_url
+      })
+      document.querySelectorAll('[data-file]').forEach((el) => {
+        const asset = find(el.dataset.file, 'setup')
+        if (asset) el.textContent = `${asset.name} · ${(asset.size / 1048576).toFixed(0)} MB`
+      })
+      document.getElementById('version').textContent = 'version ' + release.tag_name.replace(/^v/, '')
+    })
+    .catch(() => {})
+})()
+</script>
+</body>
+</html>

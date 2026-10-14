@@ -59,6 +59,7 @@ npm run lint       # oxlint
 npm run desktop          # build and open the teacher edition in an Electron window
 npm run desktop:student  # build and open the student edition
 npm run dist:win         # build both Windows editions into release/teacher and release/student
+npm run build:site       # homepage (website/) with the student lab under /lab/, into dist-site (Vercel)
 ```
 
 ## Branches and releases

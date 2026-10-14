@@ -55,6 +55,13 @@ git commit -am "Version 1.2.0" && git push
 Running the workflow by hand from the Actions tab builds the files without publishing them; they
 are then under the run's artifacts.
 
+## Website
+
+`website/` is the homepage: what the lab is, the two editions, the experiments, and the Windows
+downloads (the buttons find the files of the latest GitHub release). `npm run build:site` puts it
+in `dist-site/` with the student edition of the lab under `dist-site/lab/`; `vercel.json` tells
+Vercel to deploy exactly that. The web lab has no exam mode, which needs the desktop app.
+
 ## Exam mode
 
 The application opens on a start screen: the free laboratory, joining an exam, sitting an exam
