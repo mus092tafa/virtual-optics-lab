@@ -10,7 +10,7 @@ The system SHALL scale the refractivity n − 1 of every medium of the eye with 
 
 #### Scenario: Blue is focused in front of red
 - **WHEN** the relaxed normal eye looks at a distant object in light of 486 nm, 589 nm and 656 nm
-- **THEN** the refractive error shown is −0.61 D, 0.00 D and +0.24 D
+- **THEN** the refractive error shown is −0.60 D, 0.00 D and +0.24 D
 - **AND** the focus lies 0.22 mm in front of the retina, on it, and 0.09 mm behind it
 
 #### Scenario: The reference wavelength

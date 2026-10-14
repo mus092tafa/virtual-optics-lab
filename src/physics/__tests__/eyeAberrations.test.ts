@@ -233,7 +233,7 @@ describe('chromatic aberration', () => {
     expect(mediaAt(nm(656)).lens).toBeCloseTo(1.4136, 4)
   })
 
-  it('makes the normal eye 0.61 D myopic in blue and 0.24 D hyperopic in red', () => {
+  it('makes the normal eye 0.60 D myopic in blue and 0.24 D hyperopic in red', () => {
     const normal = setup()
     expect(refractiveError(normal, mediaAt(CHROMATIC_LINES.blue))).toBeCloseTo(-0.605, 2)
     expect(refractiveError(normal, mediaAt(CHROMATIC_LINES.red))).toBeCloseTo(0.242, 2)

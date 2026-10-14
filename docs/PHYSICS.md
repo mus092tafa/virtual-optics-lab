@@ -449,7 +449,7 @@ anatomy; they carry no calculation.
 
   At 486 nm the humour has n = 1.3381 and the lens 1.4219; at 656 nm 1.3314 and 1.4136.
 - **Result.** The eye is traced at the wavelength of the light. The relaxed normal eye has
-  K = −0.61 D at 486 nm, 0 at 589 nm and +0.24 D at 656 nm; its focus lies 0.22 mm in front of the
+  K = −0.60 D (−0.605) at 486 nm, 0 at 589 nm and +0.24 D at 656 nm; its focus lies 0.22 mm in front of the
   retina, on it, and 0.09 mm behind it. The chromatic difference of refraction between the two
   lines is 0.85 D.
 - **Against measurement.** The chromatic eye was fitted to measured eyes: its chromatic difference
@@ -650,7 +650,7 @@ including:
 | Spectacles | −3.11, +2.90 and −6.47 D correct −3, +3 and −6 D at 12 mm; +1.50 D at 40 cm leaves 0.99 D to accommodate |
 | Astigmatic eye | 7.80 / 7.45 mm cornea: 0.00 / −2.00 × 180; vertical line of 150 µm on the retina, horizontal line 0.71 mm in front; 75 µm circle at 1 m; equal radii give the symmetric eye |
 | Cylinder glasses | 0.00 / −2.05 × 180 at 12 mm leaves no blur; 26 µm with the axis 10° off; each meridian obeys K/(1 + dK) |
-| Chromatic eye | n_c(589 nm) = 1.3330; K = −0.61 D at 486 nm, +0.24 D at 656 nm; within 10% of the measured 0.90 D; nothing changes at 589 nm |
+| Chromatic eye | n_c(589 nm) = 1.3330; K = −0.60 D at 486 nm, +0.24 D at 656 nm; within 10% of the measured 0.90 D; nothing changes at 589 nm |
 | Real rays | sphere: 29.86 mm at 3 mm, equal to the closed form; ellipsoid Q = −0.5625: 31.20 mm at every height; paraxial limit |
 | Spherical aberration | 2.1 D and −0.73 mm at a 4 mm pupil; 0.40 mm of blur at 6 mm; lens Q solved for 1.0 D at 3 mm; a ring stop is brought to focus by the lens of its zone; aberration ∝ h² |
 | Point spread | ellipse blur equals the disc blur for a circle; Fourier convolution agrees with it and conserves light; a focal line keeps its own fan line sharp |
