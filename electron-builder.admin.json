@@ -15,7 +15,7 @@
   },
   "win": {
     "target": [
-      "portable"
+      "nsis"
     ],
     "icon": "build/icon.ico",
     "signAndEditExecutable": false
@@ -23,10 +23,8 @@
   "nsis": {
     "oneClick": true,
     "perMachine": false,
+    "include": "build/teacher-firewall.nsh",
     "artifactName": "VirtualOpticsLab-Teacher-${version}-setup.exe"
-  },
-  "portable": {
-    "artifactName": "VirtualOpticsLab-Teacher-${version}-portable.exe"
   },
   "fileAssociations": [
     {
