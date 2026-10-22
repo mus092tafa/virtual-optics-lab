@@ -33,6 +33,10 @@ sent to it.
 
 The student laptops need no firewall change: they only send requests to the teacher's laptop.
 
+[network-guide.pdf](network-guide.pdf) sets up the router step by step (isolation, guest network,
+name and password, addresses), with a check to run before each exam and what to do when the
+classroom cannot be found. Its source is `docs/src/network-guide.html`.
+
 ## Setting up a laptop (once)
 
 *Settings* on the start screen holds what is set once per laptop and then left alone; students do

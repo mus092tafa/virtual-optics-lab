@@ -1,0 +1,209 @@
+<!doctype html>
+<!--
+  Source of docs/network-guide.pdf. To print it again:
+  google-chrome-stable --headless --no-pdf-header-footer --print-to-pdf=docs/network-guide.pdf docs/src/network-guide.html
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Classroom network — setting up the router</title>
+<style>
+  @page { size: A4; margin: 15mm 16mm 16mm; }
+  :root { --ink: #1a2230; --muted: #5d6878; --line: #d5dce6; --accent: #2f7de1; --soft: #eef4fc; --warn: #b7791f; --warn-soft: #fdf6e7; --ok: #2f8a55; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Noto Sans", "Liberation Sans", Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: var(--ink); background: #fff; }
+  h1 { font-size: 23pt; line-height: 1.15; margin: 0 0 3pt; letter-spacing: -0.01em; }
+  .subtitle { color: var(--muted); font-size: 11pt; margin: 0 0 14pt; }
+  h2 { font-size: 13.5pt; margin: 16pt 0 7pt; padding-bottom: 3pt; border-bottom: 2px solid var(--accent); break-after: avoid; }
+  h3 { font-size: 11pt; margin: 11pt 0 3pt; break-after: avoid; }
+  p { margin: 0 0 6pt; }
+  ul, ol { margin: 0 0 6pt; padding-left: 16pt; }
+  li { margin-bottom: 2.5pt; }
+  b { font-weight: 700; }
+  code, .mono { font-family: "Noto Sans Mono", "DejaVu Sans Mono", monospace; font-size: 9.5pt; background: #f1f4f8; padding: 0 3pt; border-radius: 3pt; }
+  .menu { font-weight: 700; color: #24456f; }
+  .lead { display: grid; grid-template-columns: 1fr 72mm; gap: 12pt; align-items: center; }
+  .note { border-left: 3px solid var(--accent); background: var(--soft); padding: 6pt 9pt; border-radius: 0 5pt 5pt 0; margin: 7pt 0; break-inside: avoid; }
+  .note.key { border-color: var(--warn); background: var(--warn-soft); }
+  .note p:last-child, .note ul:last-child { margin-bottom: 0; }
+  .step { display: grid; grid-template-columns: 18pt 1fr; gap: 6pt; margin: 9pt 0 5pt; break-inside: avoid; }
+  .num { width: 17pt; height: 17pt; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 9.5pt; display: flex; align-items: center; justify-content: center; margin-top: 1pt; }
+  .step h3 { margin-top: 1pt; }
+  table { width: 100%; border-collapse: collapse; margin: 5pt 0 8pt; font-size: 9.8pt; break-inside: auto; }
+  th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 4pt 6pt 4pt 0; }
+  th { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border-bottom: 1.5px solid var(--ink); }
+  tr { break-inside: avoid; }
+  .checklist { list-style: none; padding-left: 0; }
+  .checklist li { padding-left: 17pt; position: relative; margin-bottom: 4pt; }
+  .checklist li::before { content: ""; position: absolute; left: 0; top: 2.5pt; width: 9pt; height: 9pt; border: 1.3px solid var(--ink); border-radius: 2pt; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14pt; }
+  .page-break { break-before: page; }
+  .foot { margin-top: 14pt; color: var(--muted); font-size: 8.8pt; border-top: 1px solid var(--line); padding-top: 5pt; }
+  svg text { font-family: "Noto Sans", Arial, sans-serif; }
+</style>
+</head>
+<body>
+
+<h1>Classroom network — setting up the router</h1>
+<p class="subtitle">Preparing a Wi-Fi router for exams with the Virtual Optics Laboratory · version 1.3.0 or later</p>
+
+<div class="lead">
+  <div>
+    <p>An exam runs on the teacher’s laptop. The students’ laptops connect to it through a Wi-Fi router in the room and fetch the questions, send their answers every few seconds and hand them in. <b>No internet is needed</b>: the router does not have to be connected to anything.</p>
+    <p>What the router <b>does</b> have to do is let the laptops talk to each other. Most home routers do this out of the box, but some settings — and phone hotspots, guest networks and laptops that drift onto another network — stop it. This guide sets the router up once and gives a check to run before each exam.</p>
+  </div>
+  <svg viewBox="0 0 280 190" width="72mm" role="img" aria-label="The teacher's laptop and the students' laptops all connect to one Wi-Fi router">
+    <defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="#2f7de1"/></marker></defs>
+    <!-- router -->
+    <rect x="105" y="78" width="70" height="30" rx="6" fill="#eef4fc" stroke="#2f7de1" stroke-width="1.5"/>
+    <text x="140" y="97" text-anchor="middle" font-size="11" font-weight="700" fill="#1a2230">Router</text>
+    <text x="184" y="90" font-size="8.5" fill="#5d6878">one Wi-Fi network</text>
+    <text x="184" y="102" font-size="8.5" fill="#5d6878">no internet needed</text>
+    <!-- teacher -->
+    <rect x="90" y="4" width="100" height="40" rx="5" fill="#fff" stroke="#1a2230" stroke-width="1.3"/>
+    <text x="140" y="21" text-anchor="middle" font-size="10" font-weight="700" fill="#1a2230">Teacher’s laptop</text>
+    <text x="140" y="35" text-anchor="middle" font-size="8.5" fill="#5d6878">holds the exam</text>
+    <line x1="140" y1="48" x2="140" y2="74" stroke="#2f7de1" stroke-width="1.6" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <!-- students -->
+    <g font-size="9" fill="#1a2230" text-anchor="middle">
+      <rect x="6" y="148" width="66" height="34" rx="5" fill="#fff" stroke="#1a2230" stroke-width="1.2"/><text x="39" y="169">Student</text>
+      <rect x="107" y="148" width="66" height="34" rx="5" fill="#fff" stroke="#1a2230" stroke-width="1.2"/><text x="140" y="169">Student</text>
+      <rect x="208" y="148" width="66" height="34" rx="5" fill="#fff" stroke="#1a2230" stroke-width="1.2"/><text x="241" y="169">Student</text>
+    </g>
+    <line x1="118" y1="112" x2="50" y2="144" stroke="#2f7de1" stroke-width="1.6" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <line x1="140" y1="112" x2="140" y2="144" stroke="#2f7de1" stroke-width="1.6" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+    <line x1="162" y1="112" x2="230" y2="144" stroke="#2f7de1" stroke-width="1.6" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+  </svg>
+</div>
+
+<div class="note key">
+  <p><b>The three things that matter.</b> 1. Every laptop on the <b>same</b> Wi-Fi network of the router. 2. <b>AP isolation off</b> on that network. 3. The teacher’s laptop installed with the <b>teacher’s installer</b>, with its administrator prompt accepted, so that Windows Firewall lets the students in.</p>
+</div>
+
+<h2>1. Choosing the router</h2>
+<ul>
+  <li><b>Any home Wi-Fi router</b> will do. It needs power only; leave the internet (WAN) socket empty.</li>
+  <li><b>Use a router of its own for the exam room</b> rather than the building’s network: school and university networks usually keep devices apart on purpose.</li>
+  <li><b>Check how many devices it accepts.</b> Some small routers stop at about 30 wireless devices. Count every student laptop plus the teacher’s, and leave a few spare. The limit, if there is one, is in the router’s manual or its wireless settings (<i>maximum clients</i>).</li>
+  <li><b>A phone hotspot</b> works for a few laptops (a test, a small group) but not for a class: phones accept only a handful of devices, and the hotspot disappears when the phone locks or its battery runs low.</li>
+  <li>Put the router <b>in the middle of the room</b>, raised, away from metal cabinets.</li>
+</ul>
+
+<h2>2. Setting up the router (once)</h2>
+
+<div class="step"><span class="num">1</span><div>
+  <h3>Open the router’s settings page</h3>
+  <p>Connect a laptop to the router’s Wi-Fi (or with a network cable). Open a web browser and type the address printed on the label underneath the router — usually <code>192.168.0.1</code> or <code>192.168.1.1</code>; TP-Link routers also answer at <code>tplinkwifi.net</code>. Log in with the password on the label, or the one chosen the first time the router was set up. This works without internet.</p>
+</div></div>
+
+<div class="step"><span class="num">2</span><div>
+  <h3>Turn AP isolation off — the most important setting</h3>
+  <p>AP isolation lets every device reach the internet but not each other. With it on, the students’ laptops cannot see the classroom, and nothing on a laptop can fix that. Look in the wireless settings, often under <span class="menu">Wireless → Advanced</span>, for any of these names, and make sure it is <b>off / unticked / disabled</b>:</p>
+  <table>
+    <tr><th>Name on the router</th><th>Seen on, for example</th></tr>
+    <tr><td><b>AP Isolation</b> / Enable AP Isolation</td><td>TP-Link, Netgear, Tenda and many others</td></tr>
+    <tr><td><b>Set AP Isolated</b></td><td>ASUS</td></tr>
+    <tr><td><b>Client Isolation</b>, <b>Wireless Isolation</b>, <b>Station Isolation</b></td><td>various brands and ISP-supplied routers</td></tr>
+    <tr><td><b>SSID Isolation</b>, <b>Privacy Separator</b></td><td>ISP-supplied routers, Cisco/Linksys</td></tr>
+  </table>
+  <p>If the router has two bands (2.4 GHz and 5 GHz), the setting may appear once for each: turn it off for both. Save, and restart the router if it asks.</p>
+</div></div>
+
+<div class="step"><span class="num">3</span><div>
+  <h3>Use the main network, not the guest network</h3>
+  <p>A <b>guest network</b> keeps its devices apart by design, whatever the isolation setting says. Connect all laptops to the router’s main Wi-Fi network. If the guest network is not needed, switch it off so that nobody joins it by mistake.</p>
+</div></div>
+
+<div class="step"><span class="num">4</span><div>
+  <h3>Give the Wi-Fi a clear name and a password</h3>
+  <p>Rename the network to something unmistakable, for example <code>Optics-Lab</code>, so that it is not confused with phones and other routers nearby. Set the security to <b>WPA2-Personal</b> (or WPA2/WPA3) with a password and write the name and password on the board. Many routers come with an open network named like <code>TP-LINK_3BE4B2</code>: on an open network any phone in the corridor can join.</p>
+  <p>Both bands of one router (2.4 GHz and 5 GHz) are the same network: a laptop may use either, even when the router gives them different names.</p>
+</div></div>
+
+<div class="step"><span class="num">5</span><div>
+  <h3>Make sure there are enough addresses</h3>
+  <p>The router hands each laptop an address (this is the <b>DHCP server</b>; leave it on). Under <span class="menu">Network → DHCP Server</span> or <span class="menu">LAN</span>, the address range must hold every laptop with some to spare. The usual range, for example <code>192.168.0.100</code> to <code>192.168.0.199</code>, holds 100 — enough for any class.</p>
+</div></div>
+
+<div class="step"><span class="num">6</span><div>
+  <h3>Optional: a fixed address for the teacher’s laptop</h3>
+  <p>Needed only when the students’ laptops use <i>saved teachers’ computers</i> (see section 3), because those remember the teacher’s laptop by its address. Under <span class="menu">DHCP → Address Reservation</span> (or <i>Static Lease</i>, <i>Fixed IP</i>), pick the teacher’s laptop from the list of connected devices and reserve its current address. It then gets the same address in every lesson.</p>
+</div></div>
+
+<h2 class="page-break">3. The laptops</h2>
+
+<div class="two">
+  <div>
+    <h3>The teacher’s laptop</h3>
+    <ul>
+      <li><b>Install with the teacher’s installer</b> (<code>VirtualOpticsLab-Teacher-…-setup.exe</code>, 1.3.0 or later). During installation Windows asks once <i>“Do you want to allow this app to make changes?”</i> — choose <b>Yes</b>. That opens the classroom in Windows Firewall on every network, so nothing else needs setting.</li>
+      <li><b>Connect to the router’s Wi-Fi.</b> Windows shows <i>No internet</i>: that is expected; stay connected.</li>
+      <li><b>Keep it from drifting away.</b> If the laptop knows a network with internet (a phone hotspot, the building’s Wi-Fi), Windows may move to it during the lesson. Turn phone hotspots off in the room, or open that network in <span class="menu">Settings → Network &amp; internet → Wi-Fi → Manage known networks</span> and untick <i>Connect automatically</i>.</li>
+      <li><b>Open the classroom.</b> Its screen shows the laptop’s address, for example <code>192.168.0.104</code>. The first three numbers must match the router’s (here <code>192.168.0</code>). An address such as <code>172.20.10.2</code> means the laptop is on a phone hotspot instead.</li>
+    </ul>
+  </div>
+  <div>
+    <h3>The students’ laptops</h3>
+    <ul>
+      <li><b>Connect to the same Wi-Fi</b> as the teacher — the main network, not the guest one — and stay on it, as above.</li>
+      <li><b>Join an exam</b> on the start screen. The open classroom appears by itself, under the teacher’s name.</li>
+      <li><b>If it does not appear:</b> <span class="menu">Settings → Find teachers on this network</span> asks every address on the network, which gets through routers that block the quick search. <i>Save this teacher</i> keeps it, or type the address shown on the teacher’s screen.</li>
+      <li><span class="menu">Settings → Connection check</span> shows whether the laptop reaches the open classroom.</li>
+      <li>The student laptops need no firewall change: they only send requests to the teacher’s laptop.</li>
+    </ul>
+  </div>
+</div>
+
+<div class="note">
+  <p><b>Finding a laptop’s own address.</b> In Windows: <span class="menu">Settings → Network &amp; internet → Wi-Fi → (the network) → Properties</span>, line <i>IPv4 address</i>. Or press <b>Win + R</b>, type <code>cmd</code>, and in the window type <code>ipconfig</code>. Two laptops are on the same network when the first three numbers agree.</p>
+</div>
+
+<h2>4. Before each exam — a five-minute check</h2>
+<ul class="checklist">
+  <li>The router is on, and the Wi-Fi name on the board is the one the laptops see.</li>
+  <li>Phone hotspots in the room are off.</li>
+  <li>The teacher’s laptop is on that Wi-Fi, and the classroom screen shows an address with the router’s first three numbers.</li>
+  <li>The teacher’s laptop is plugged in (the application keeps it awake while a classroom is open).</li>
+  <li>Two or three student laptops see the classroom under <i>Join an exam</i> before the whole class joins.</li>
+  <li>The number of students joined matches the number in the room before pressing <i>Start the exam</i>.</li>
+</ul>
+
+<h2>5. When the classroom cannot be found</h2>
+<table>
+  <tr><th style="width: 30%">What you see</th><th style="width: 30%">Likely cause</th><th>What to do</th></tr>
+  <tr>
+    <td>No student finds the classroom; the teacher’s screen shows an address</td>
+    <td>The laptops are on different networks</td>
+    <td>Compare the first three numbers of the teacher’s address and a student’s (see the note in section 3). If they differ, connect both to the router’s main Wi-Fi.</td>
+  </tr>
+  <tr>
+    <td>Same network, still no student finds it, and typing the teacher’s address does not work either</td>
+    <td>Windows Firewall on the teacher’s laptop, or AP isolation on the router</td>
+    <td><b>Firewall:</b> on the teacher’s laptop set the Wi-Fi to <i>Private</i> (<span class="menu">Settings → Network &amp; internet → Wi-Fi → the network → Network profile type</span>), or reinstall with the teacher’s installer and accept the administrator prompt. If an antivirus program manages the firewall, allow <i>Virtual Optics Lab Teacher</i> there.<br><b>Router:</b> check step 2 again — AP isolation off on both bands, and not the guest network.</td>
+  </tr>
+  <tr>
+    <td>Typing the address works, but the classroom never appears by itself</td>
+    <td>The router passes ordinary traffic but drops the quick search</td>
+    <td>Use <span class="menu">Settings → Find teachers on this network</span> and <i>Save this teacher</i> on the students’ laptops; give the teacher’s laptop a fixed address (step 6).</td>
+  </tr>
+  <tr>
+    <td>Most students find it, a few do not</td>
+    <td>Those laptops joined another network (guest, a hotspot, a neighbouring router), or the router has reached its device limit</td>
+    <td>Check the Wi-Fi name on those laptops. If they are on the right one, disconnect a device that does not belong to the exam, or use a router that accepts more devices.</td>
+  </tr>
+  <tr>
+    <td>Saved teacher’s computer stopped answering after a few days</td>
+    <td>The teacher’s laptop got a new address from the router</td>
+    <td>Reserve its address on the router (step 6), then on the students’ laptops <i>Find teachers on this network</i> once more.</td>
+  </tr>
+  <tr>
+    <td>A laptop drops off the Wi-Fi during the exam</td>
+    <td>Distance, or Windows moved to another known network</td>
+    <td>Nothing is lost: the student keeps working, the answers stay on the laptop and are sent when it reconnects. Reconnect it to the exam Wi-Fi.</td>
+  </tr>
+</table>
+
+<p class="foot">Virtual Optics Laboratory · Classroom network guide. The classroom uses TCP port 47800 on the teacher’s laptop for the exam and UDP port 47801 for the students’ search; a network administrator who manages the router or the firewall needs to allow these between the laptops. More on exams: docs/EXAMS.md in the project.</p>
+
+</body>
+</html>
