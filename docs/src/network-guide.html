@@ -11,10 +11,10 @@
   @page { size: A4; margin: 15mm 16mm 16mm; }
   :root { --ink: #1a2230; --muted: #5d6878; --line: #d5dce6; --accent: #2f7de1; --soft: #eef4fc; --warn: #b7791f; --warn-soft: #fdf6e7; --ok: #2f8a55; }
   * { box-sizing: border-box; }
-  body { margin: 0; font-family: "Noto Sans", "Liberation Sans", Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: var(--ink); background: #fff; }
+  body { margin: 0; font-family: "Noto Sans", "Liberation Sans", Arial, sans-serif; font-size: 10.2pt; line-height: 1.42; color: var(--ink); background: #fff; }
   h1 { font-size: 23pt; line-height: 1.15; margin: 0 0 3pt; letter-spacing: -0.01em; }
   .subtitle { color: var(--muted); font-size: 11pt; margin: 0 0 14pt; }
-  h2 { font-size: 13.5pt; margin: 16pt 0 7pt; padding-bottom: 3pt; border-bottom: 2px solid var(--accent); break-after: avoid; }
+  h2 { font-size: 13.5pt; margin: 14pt 0 6pt; padding-bottom: 3pt; border-bottom: 2px solid var(--accent); break-after: avoid; }
   h3 { font-size: 11pt; margin: 11pt 0 3pt; break-after: avoid; }
   p { margin: 0 0 6pt; }
   ul, ol { margin: 0 0 6pt; padding-left: 16pt; }
@@ -26,19 +26,25 @@
   .note { border-left: 3px solid var(--accent); background: var(--soft); padding: 6pt 9pt; border-radius: 0 5pt 5pt 0; margin: 7pt 0; break-inside: avoid; }
   .note.key { border-color: var(--warn); background: var(--warn-soft); }
   .note p:last-child, .note ul:last-child { margin-bottom: 0; }
-  .step { display: grid; grid-template-columns: 18pt 1fr; gap: 6pt; margin: 9pt 0 5pt; break-inside: avoid; }
+  .step { display: grid; grid-template-columns: 18pt 1fr; gap: 6pt; margin: 9pt 0 5pt; }
+  .step p { orphans: 3; widows: 3; }
   .num { width: 17pt; height: 17pt; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; font-size: 9.5pt; display: flex; align-items: center; justify-content: center; margin-top: 1pt; }
   .step h3 { margin-top: 1pt; }
-  table { width: 100%; border-collapse: collapse; margin: 5pt 0 8pt; font-size: 9.8pt; break-inside: auto; }
+  table { width: 100%; border-collapse: collapse; margin: 5pt 0 6pt; font-size: 9.6pt; break-inside: auto; }
   th, td { text-align: left; vertical-align: top; border-bottom: 1px solid var(--line); padding: 4pt 6pt 4pt 0; }
   th { font-size: 9pt; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); border-bottom: 1.5px solid var(--ink); }
   tr { break-inside: avoid; }
   .checklist { list-style: none; padding-left: 0; }
   .checklist li { padding-left: 17pt; position: relative; margin-bottom: 4pt; }
   .checklist li::before { content: ""; position: absolute; left: 0; top: 2.5pt; width: 9pt; height: 9pt; border: 1.3px solid var(--ink); border-radius: 2pt; }
+  .record { border: 1.3px solid var(--ink); border-radius: 6pt; padding: 8pt 11pt 10pt; margin: 12pt 0 0; break-inside: avoid; }
+  .record h3 { margin: 0 0 4pt; }
+  .fields { display: grid; grid-template-columns: 42mm 1fr; column-gap: 8pt; row-gap: 0; }
+  .fields span { font-size: 9.5pt; color: var(--muted); padding-top: 11pt; }
+  .fields i { border-bottom: 1px solid var(--muted); height: 22pt; }
   .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14pt; }
-  .page-break { break-before: page; }
-  .foot { margin-top: 14pt; color: var(--muted); font-size: 8.8pt; border-top: 1px solid var(--line); padding-top: 5pt; }
+  .keep { break-inside: avoid; }
+  .foot { margin-top: 8pt; color: var(--muted); font-size: 8.8pt; border-top: 1px solid var(--line); padding-top: 5pt; }
   svg text { font-family: "Noto Sans", Arial, sans-serif; }
 </style>
 </head>
@@ -90,47 +96,59 @@
 </ul>
 
 <h2>2. Setting up the router (once)</h2>
+<p>Every router names and places its settings differently, so the steps below say <b>what</b> to set and the names it usually goes by, not where it sits in the menus. The router’s manual, or its model number searched on the maker’s website, shows where. Do these steps for each router used for exams, and note what you set in the box at the end of this section.</p>
 
 <div class="step"><span class="num">1</span><div>
   <h3>Open the router’s settings page</h3>
-  <p>Connect a laptop to the router’s Wi-Fi (or with a network cable). Open a web browser and type the address printed on the label underneath the router — usually <code>192.168.0.1</code> or <code>192.168.1.1</code>; TP-Link routers also answer at <code>tplinkwifi.net</code>. Log in with the password on the label, or the one chosen the first time the router was set up. This works without internet.</p>
+  <p>Connect a laptop to the router’s Wi-Fi (or with a network cable). Open a web browser and type the settings address printed on the label of the router, with the login name and password next to it. Common addresses are <code>192.168.0.1</code>, <code>192.168.1.1</code> and <code>192.168.8.1</code>; some labels give a web name instead. This works without internet.</p>
+  <p><b>No label?</b> On the connected laptop press <b>Win + R</b>, type <code>cmd</code>, and in the window type <code>ipconfig</code>: the <i>Default Gateway</i> line is the router’s address. If the password was changed and nobody knows it, the reset button on the router (held for about ten seconds) restores the one on the label — and every other setting, so do this only on a router used for the exams alone.</p>
 </div></div>
 
 <div class="step"><span class="num">2</span><div>
-  <h3>Turn AP isolation off — the most important setting</h3>
-  <p>AP isolation lets every device reach the internet but not each other. With it on, the students’ laptops cannot see the classroom, and nothing on a laptop can fix that. Look in the wireless settings, often under <span class="menu">Wireless → Advanced</span>, for any of these names, and make sure it is <b>off / unticked / disabled</b>:</p>
+  <h3>Let the laptops reach each other — the most important setting</h3>
+  <p>Many routers can keep wireless devices apart: each one reaches the internet but not the others. With that on, the students’ laptops cannot see the classroom, and nothing on a laptop can fix it. It is usually in the wireless settings, often on an “advanced” page. Routers word it one of two ways:</p>
   <table>
-    <tr><th>Name on the router</th><th>Seen on, for example</th></tr>
-    <tr><td><b>AP Isolation</b> / Enable AP Isolation</td><td>TP-Link, Netgear, Tenda and many others</td></tr>
-    <tr><td><b>Set AP Isolated</b></td><td>ASUS</td></tr>
-    <tr><td><b>Client Isolation</b>, <b>Wireless Isolation</b>, <b>Station Isolation</b></td><td>various brands and ISP-supplied routers</td></tr>
-    <tr><td><b>SSID Isolation</b>, <b>Privacy Separator</b></td><td>ISP-supplied routers, Cisco/Linksys</td></tr>
+    <tr><th style="width: 55%">If the router calls it…</th><th>set it to</th></tr>
+    <tr><td><b>AP Isolation</b>, <b>Client Isolation</b>, <b>Wireless Isolation</b>, <b>Station Isolation</b>, <b>SSID Isolation</b>, <b>Privacy Separator</b>, <b>Set AP Isolated</b></td><td><b>Off</b> / unticked / disabled</td></tr>
+    <tr><td><b>Allow clients to communicate</b>, <b>Intra-BSS traffic</b>, <b>Allow devices to see each other</b></td><td><b>On</b> / ticked / enabled</td></tr>
   </table>
-  <p>If the router has two bands (2.4 GHz and 5 GHz), the setting may appear once for each: turn it off for both. Save, and restart the router if it asks.</p>
+  <p>If the router has two bands (2.4 GHz and 5 GHz), the setting may appear once for each: set it for both. Save, and restart the router if it asks. If no such setting exists, the router lets devices reach each other already.</p>
 </div></div>
 
 <div class="step"><span class="num">3</span><div>
   <h3>Use the main network, not the guest network</h3>
-  <p>A <b>guest network</b> keeps its devices apart by design, whatever the isolation setting says. Connect all laptops to the router’s main Wi-Fi network. If the guest network is not needed, switch it off so that nobody joins it by mistake.</p>
+  <p>A <b>guest network</b> (sometimes <i>visitor</i> or <i>guest Wi-Fi</i>) keeps its devices apart by design, whatever the setting in step 2 says. Connect all laptops to the router’s main Wi-Fi network. If the guest network is not needed, switch it off so that nobody joins it by mistake.</p>
 </div></div>
 
 <div class="step"><span class="num">4</span><div>
   <h3>Give the Wi-Fi a clear name and a password</h3>
-  <p>Rename the network to something unmistakable, for example <code>Optics-Lab</code>, so that it is not confused with phones and other routers nearby. Set the security to <b>WPA2-Personal</b> (or WPA2/WPA3) with a password and write the name and password on the board. Many routers come with an open network named like <code>TP-LINK_3BE4B2</code>: on an open network any phone in the corridor can join.</p>
+  <p>Rename the network (the <i>SSID</i> or <i>network name</i>) to something unmistakable, for example <code>Optics-Lab</code>, so that it is not confused with phones and other routers nearby. Set the security to <b>WPA2-Personal</b> (or WPA2/WPA3) with a password, and write the name and password on the board. A new router often comes with a network named after its maker and a few letters or numbers, sometimes open with no password: on an open network any phone in the corridor can join.</p>
   <p>Both bands of one router (2.4 GHz and 5 GHz) are the same network: a laptop may use either, even when the router gives them different names.</p>
 </div></div>
 
 <div class="step"><span class="num">5</span><div>
   <h3>Make sure there are enough addresses</h3>
-  <p>The router hands each laptop an address (this is the <b>DHCP server</b>; leave it on). Under <span class="menu">Network → DHCP Server</span> or <span class="menu">LAN</span>, the address range must hold every laptop with some to spare. The usual range, for example <code>192.168.0.100</code> to <code>192.168.0.199</code>, holds 100 — enough for any class.</p>
+  <p>The router hands each laptop an address; this is its <b>DHCP server</b>, usually in the <i>LAN</i> or <i>DHCP</i> settings. Leave it on, and check that its address range holds every laptop with some to spare: a range such as <code>…100</code> to <code>…199</code> holds 100, enough for any class.</p>
 </div></div>
 
 <div class="step"><span class="num">6</span><div>
   <h3>Optional: a fixed address for the teacher’s laptop</h3>
-  <p>Needed only when the students’ laptops use <i>saved teachers’ computers</i> (see section 3), because those remember the teacher’s laptop by its address. Under <span class="menu">DHCP → Address Reservation</span> (or <i>Static Lease</i>, <i>Fixed IP</i>), pick the teacher’s laptop from the list of connected devices and reserve its current address. It then gets the same address in every lesson.</p>
+  <p>Needed only when the students’ laptops use <i>saved teachers’ computers</i> (see section 3), because those remember the teacher’s laptop by its address. In the DHCP settings, look for <b>Address Reservation</b> (or <i>Static Lease</i>, <i>Fixed IP</i>, <i>DHCP Binding</i>), pick the teacher’s laptop from the list of connected devices and reserve its current address. It then gets the same address in every lesson.</p>
 </div></div>
 
-<h2 class="page-break">3. The laptops</h2>
+<div class="record">
+  <h3>This room’s router</h3>
+  <div class="fields">
+    <span>Make and model</span><i></i>
+    <span>Settings address</span><i></i>
+    <span>Login name and password</span><i></i>
+    <span>Wi-Fi name and password</span><i></i>
+    <span>Isolation setting, where</span><i></i>
+    <span>Teacher’s laptop address</span><i></i>
+  </div>
+</div>
+
+<h2>3. The laptops</h2>
 
 <div class="two">
   <div>
@@ -158,6 +176,7 @@
   <p><b>Finding a laptop’s own address.</b> In Windows: <span class="menu">Settings → Network &amp; internet → Wi-Fi → (the network) → Properties</span>, line <i>IPv4 address</i>. Or press <b>Win + R</b>, type <code>cmd</code>, and in the window type <code>ipconfig</code>. Two laptops are on the same network when the first three numbers agree.</p>
 </div>
 
+<section class="keep">
 <h2>4. Before each exam — a five-minute check</h2>
 <ul class="checklist">
   <li>The router is on, and the Wi-Fi name on the board is the one the laptops see.</li>
@@ -167,6 +186,7 @@
   <li>Two or three student laptops see the classroom under <i>Join an exam</i> before the whole class joins.</li>
   <li>The number of students joined matches the number in the room before pressing <i>Start the exam</i>.</li>
 </ul>
+</section>
 
 <h2>5. When the classroom cannot be found</h2>
 <table>
