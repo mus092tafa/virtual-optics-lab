@@ -2297,6 +2297,21 @@ tfoot td {
   margin: 0;
 }
 
+.update-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+
+.update-notice > span {
+  flex: 1 1 280px;
+}
+
+.update-notice a.chip {
+  text-decoration: none;
+}
+
 .start-columns {
   display: grid;
   grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr);

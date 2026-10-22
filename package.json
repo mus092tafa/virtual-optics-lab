@@ -14,10 +14,9 @@
     "test:watch": "vitest",
     "desktop": "npm run build && electron .",
     "desktop:student": "npm run build:student && electron . --edition=student",
-    "dist:win:teacher": "npm run build && electron-builder --win portable --x64 --config electron-builder.admin.json",
-    "dist:win:student": "npm run build:student && electron-builder --win portable --x64 --config electron-builder.student.json",
-    "dist:win": "npm run dist:win:teacher && npm run dist:win:student",
-    "dist:win:setup": "npm run build && npm run build:student && electron-builder --win nsis --x64 --config electron-builder.admin.json && electron-builder --win nsis --x64 --config electron-builder.student.json"
+    "dist:win:teacher": "npm run build && node scripts/dist-win.js electron-builder.admin.json",
+    "dist:win:student": "npm run build:student && node scripts/dist-win.js electron-builder.student.json",
+    "dist:win": "npm run dist:win:teacher && npm run dist:win:student"
   },
   "dependencies": {
     "react": "^19.2.8",

@@ -1,10 +1,11 @@
+import { useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import { EXPERIMENTS, experiment } from '../../education/experiments'
 import { TOPICS } from '../../education/topics'
 import { FILE_EXTENSIONS } from '../../exam/format'
 import { EDITION, desktop, hasDesktop } from '../../platform/desktop'
 import { actions, useLab } from '../../state/labState'
-import type { OpenedFile } from '../../platform/desktop'
+import type { AvailableUpdate, OpenedFile } from '../../platform/desktop'
 import { BrandMark } from './BrandMark'
 
 interface Props {
@@ -51,10 +52,31 @@ function Tile({ tone, icon, title, text, disabled, onClick }: TileProps) {
   )
 }
 
+/** Asks the shell once whether a newer version is out; nothing appears offline or in a browser. */
+function useAvailableUpdate(): AvailableUpdate | null {
+  const [update, setUpdate] = useState<AvailableUpdate | null>(null)
+  useEffect(() => {
+    if (!hasDesktop()) return
+    let cancelled = false
+    void desktop()
+      .checkForUpdate()
+      .then((result) => {
+        if (!cancelled) setUpdate(result)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+  return update
+}
+
 /** First screen of the application: the free laboratory or one of the exam modes. */
 export function StartScreen({ notice, onLab, onJoin, onOpenFile, onSettings, onAdmin }: Props) {
   const exams = hasDesktop()
   const current = experiment(useLab((state) => state.experiment))
+  const update = useAvailableUpdate()
+  const [updateDismissed, setUpdateDismissed] = useState(false)
 
   const openExamFile = async () => {
     const file = await desktop().openFile({ title: 'Open an exam file', extensions: [FILE_EXTENSIONS.paper], label: 'Exam file' })
@@ -81,6 +103,25 @@ export function StartScreen({ notice, onLab, onJoin, onOpenFile, onSettings, onA
 
       <main className="start-scroll">
         <div className="start-layout">
+          {update && !updateDismissed && (
+            <div className="notice info update-notice" role="status">
+              <span>
+                Version {update.version} is available. Download the installer and run it; your experiments, exams and records are kept.
+              </span>
+              <a className="chip" href={update.url} target="_blank" rel="noreferrer">
+                Download
+              </a>
+              {update.page !== update.url && (
+                <a className="chip" href={update.page} target="_blank" rel="noreferrer">
+                  What’s new
+                </a>
+              )}
+              <button className="chip" onClick={() => setUpdateDismissed(true)}>
+                Later
+              </button>
+            </div>
+          )}
+
           {notice && (
             <p className="notice warning" role="alert">
               {notice}

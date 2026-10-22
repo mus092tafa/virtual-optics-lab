@@ -22,18 +22,24 @@ npm run dist:win         # build both editions into release/teacher and release/
 ```
 
 There are two editions. The **teacher** edition contains everything; the **student** edition has
-no exam-writing or marking code. Each is built as a portable exe: a single file that runs on
-64-bit Windows 10/11 without installation. They are not code-signed, so Windows SmartScreen asks
-for confirmation on first launch (*More info → Run anyway*).
+no exam-writing or marking code. Each is built as an installer (`…-setup.exe`) for 64-bit Windows
+10/11: per-user, it registers the exam file types, and installing a newer version over an older
+one keeps the experiments, exams and records. The teacher's installer also lets the classroom
+through Windows Firewall on every network, for which Windows asks once for administrator
+permission; the student's needs none. They are not code-signed, so Windows SmartScreen asks for
+confirmation on first launch (*More info → Run anyway*).
 
-`npm run dist:win:setup` builds installers instead (`…-setup.exe`: per-user, no administrator
-rights, registers the exam file types). Building those on Linux needs `wine`; on Windows it works
-as is. The *Windows builds* workflow on GitHub builds all four files (portable and installer, both
-editions) on a Windows machine.
+On Linux, `npm run dist:win` builds them without wine (`scripts/dist-win.js`). The *Windows builds*
+workflow on GitHub builds both on a Windows machine, where the app's exe also gets its icon.
+
+When it is online, the application asks GitHub's public releases API whether a newer version has
+been released and, if so, offers this edition's installer on the start screen
+(`electron/updates.cjs`). Nothing is downloaded or installed by itself; offline the check stays
+silent.
 
 ### Publishing a release
 
-The four files of each version are on the repository's
+The two installers of each version are on the repository's
 [Releases](https://github.com/mus092tafa/virtual-optics-lab/releases) page. Work is committed to
 `develop`, and every push to `main` publishes a release by itself:
 
@@ -42,7 +48,7 @@ git checkout main && git merge --ff-only develop && git push   # starts the buil
 git checkout develop
 ```
 
-The *Windows builds* workflow then builds the four files, tags the commit and publishes the
+The *Windows builds* workflow then builds the two installers, tags the commit and publishes the
 release. The version is the one in `package.json`; if that one has been released already, the
 patch number is raised to the next free one (1.1.0, 1.1.1, 1.1.2, …), in the release only and not
 in the repository. For a release with new features, raise the version on `develop` before merging:

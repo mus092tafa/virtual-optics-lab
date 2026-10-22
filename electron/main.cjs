@@ -1,13 +1,14 @@
 // Desktop shell: opens the built laboratory in a window and provides what a
 // web page cannot do on its own — files, PDF output, the records kept on the
 // teacher's machine and the classroom network. Nothing here touches the optics.
-const { app, BrowserWindow, dialog, ipcMain, powerSaveBlocker, shell } = require('electron')
+const { app, BrowserWindow, dialog, ipcMain, net, powerSaveBlocker, shell } = require('electron')
 const crypto = require('node:crypto')
 const fs = require('node:fs')
 const os = require('node:os')
 const path = require('node:path')
 const { Classroom, discoverClassrooms, hostClassroom, localAddresses, scanClassrooms } = require('./classroom.cjs')
 const { createJsonStore } = require('./storage.cjs')
+const { RELEASES_URL, checkForUpdate } = require('./updates.cjs')
 
 const EXAM_FILE = /\.(opticsexam|opticsmaster|opticsanswers)$/i
 
@@ -24,6 +25,8 @@ if (!app.isPackaged) {
 }
 
 let mainWindow = null
+/** The answer to "is there a newer version?", asked once per start. */
+let updateCheck = null
 /** An exam file the application was started with, until the page asks for it. */
 let openedFile = null
 
@@ -318,6 +321,12 @@ if (!app.requestSingleInstanceLock()) {
   app.whenReady().then(() => {
     openedFile = examFileIn(process.argv)
     ipcMain.handle('app:info', () => ({ edition, version: app.getVersion(), hostName: os.hostname() }))
+    ipcMain.handle('app:checkUpdate', () => {
+      // From source, OPTICS_RELEASES_URL points the check at a test server.
+      const url = (!app.isPackaged && process.env.OPTICS_RELEASES_URL) || RELEASES_URL
+      updateCheck ??= checkForUpdate({ version: app.getVersion(), edition, fetch: net.fetch, url })
+      return updateCheck
+    })
     ipcMain.handle('file:takeOpened', () => {
       const file = openedFile
       openedFile = null

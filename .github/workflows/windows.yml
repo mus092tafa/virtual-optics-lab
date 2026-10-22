@@ -1,8 +1,9 @@
 name: Windows builds
 
-# Builds both editions as a portable exe and as an installer. The installer
-# cannot be built on Linux without wine, so it is built here. Every push to
-# `main` (a merge of `develop`) publishes the four files as a GitHub release.
+# Builds the installer of both editions on Windows, where the app's exe also
+# gets its icon and version details. Every push to `main` (a merge of
+# `develop`) publishes the two files as a GitHub release; the applications
+# find it there and offer the update.
 # Its version is the one in package.json or, when that has been released
 # already, the next free patch version of it. A manual run only keeps the
 # files as artifacts of the run.
@@ -46,7 +47,7 @@ jobs:
       - run: npm run build:student
       - name: Let the build write the icon into the exe
         shell: bash
-        # The configurations leave the exe alone so that the portable file also builds on Linux without
+        # The configurations leave the exe alone so that the installer also builds on Linux without
         # wine; on Windows rcedit runs natively, so the app's own exe gets the icon and version details.
         run: |
           node -e '
@@ -57,8 +58,8 @@ jobs:
               fs.writeFileSync(file, JSON.stringify(config, null, 2))
             }
           '
-      - run: npx electron-builder --win portable nsis --x64 --config electron-builder.admin.json --publish never
-      - run: npx electron-builder --win portable nsis --x64 --config electron-builder.student.json --publish never
+      - run: npx electron-builder --win nsis --x64 --config electron-builder.admin.json --publish never
+      - run: npx electron-builder --win nsis --x64 --config electron-builder.student.json --publish never
       - uses: actions/upload-artifact@v4
         with:
           name: virtual-optics-lab-windows
@@ -76,12 +77,12 @@ jobs:
           cat > notes.md <<'NOTES'
           For 64-bit Windows 10 and 11.
 
-          | Edition | Installer | Single file, no installation |
-          | --- | --- | --- |
-          | **Teacher**: the laboratory, writing exams, the classroom, marking | `VirtualOpticsLab-Teacher-…-setup.exe` | `VirtualOpticsLab-Teacher-…-portable.exe` |
-          | **Student**: the laboratory, joining and sitting exams | `VirtualOpticsLab-Student-…-setup.exe` | `VirtualOpticsLab-Student-…-portable.exe` |
+          | Edition | Installer |
+          | --- | --- |
+          | **Teacher**: the laboratory, writing exams, the classroom, marking | `VirtualOpticsLab-Teacher-…-setup.exe` |
+          | **Student**: the laboratory, joining and sitting exams | `VirtualOpticsLab-Student-…-setup.exe` |
 
-          The installer needs no administrator rights and lets exam files be opened by double-clicking them. The files are not code-signed, so Windows SmartScreen asks for confirmation on first launch (*More info → Run anyway*).
+          The installers let exam files be opened by double-clicking them. The teacher's installer also lets the classroom through Windows Firewall on every network, so Windows asks once for administrator permission; the student's installer needs no administrator rights. Installing a new version over the old one keeps the experiments, exams and records; an installed application shows on its start screen when a newer version is out. The files are not code-signed, so Windows SmartScreen asks for confirmation on first launch (*More info → Run anyway*).
           NOTES
           # Creates the tag on the commit that was built.
           gh release create "$TAG" release/teacher/*.exe release/student/*.exe --target "$GITHUB_SHA" --title "Virtual Optics Lab ${TAG#v}" --notes-file notes.md --generate-notes

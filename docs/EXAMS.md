@@ -19,11 +19,15 @@ sent to it.
 - A Wi-Fi router. It does not need an internet connection or any cable to the laptops; it only
   has to let the laptops reach each other. Any basic home router handles forty laptops.
 - Every laptop, including the teacher's, connected to that router's Wi-Fi.
-- On the **teacher's laptop only**: the first time a classroom is opened, Windows Firewall asks
-  whether to allow the application on the network. Choose **Allow**, with both *Private* and
-  *Public* networks ticked (Windows usually classes an unknown router as Public). If this was
-  declined, allow *Virtual Optics Lab Teacher* under *Windows Security → Firewall → Allow an app
-  through firewall*.
+- On the **teacher's laptop only**, Windows Firewall has to let the classroom in. The teacher's
+  **installer** does this: during installation Windows asks once for permission to make changes
+  (an administrator's password on a standard account), and the application is then allowed on
+  every network, Private and Public alike. Nothing else is set up. When that permission was
+  declined, Windows asks instead the first time a classroom is opened: choose **Allow**, with both *Private* and *Public* networks ticked (Windows classes a
+  phone hotspot or an unknown router as Public, and the default answer blocks the classroom
+  there). If this was declined, allow *Virtual Optics Lab Teacher* under *Windows Security →
+  Firewall → Allow an app through firewall → Change settings* (administrator rights), or set the
+  Wi-Fi network's *Network profile type* to *Private* in *Settings → Network & internet*.
 - On the router, "AP isolation" / "client isolation" must be **off** (it is off by default on most
   routers). When it is on, laptops cannot see each other and no classroom is found.
 
@@ -131,9 +135,7 @@ student saves a `.opticsanswers` file that the teacher imports (*Collect answer 
 exam, then *Import answers file…*). Without the classroom the teacher's laptop cannot enforce the
 time; the file records when the student started and submitted.
 
-With the portable exe, open these files from inside the application (*Open an exam file*,
-*Import exam file…*). Double-clicking them works only when the application was installed with the
-installer build (`npm run dist:win:setup`), which registers the file types.
+The installer registers the file types, so they open by double-clicking.
 
 ## Limits
 
@@ -161,6 +163,9 @@ The classroom listens on TCP 47800 (HTTP + JSON) and answers the students' searc
 *Find teachers on this network* also asks every address that shares the laptop's first three
 numbers (`GET /api/room` on TCP 47800), so it finds a classroom on a network that drops broadcasts
 but not one that had to take another port.
+The teacher's installer adds an inbound Windows Firewall rule for the installed exe, all profiles,
+named *Virtual Optics Lab Teacher classroom (install folder)*, after removing any rule Windows made
+earlier for that exe (`build/teacher-firewall.nsh`); the uninstaller removes it, an update keeps it.
 Teacher actions exist only as calls from the teacher's own window; none is reachable over the
 network. `npm run desktop` runs the teacher edition from source and `npm run desktop:student` the
 student edition; two instances on one machine find each other, which is how the flow is tested.

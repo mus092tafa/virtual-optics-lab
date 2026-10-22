@@ -12,6 +12,7 @@ const subscribe = (channel) => (listener) => {
 
 contextBridge.exposeInMainWorld('opticsDesktop', {
   info: call('app:info'),
+  checkForUpdate: call('app:checkUpdate'),
   openFile: call('file:open'),
   saveFile: call('file:save'),
   savePdf: call('documents:savePdf'),

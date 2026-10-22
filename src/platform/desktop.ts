@@ -39,8 +39,17 @@ export interface ClassroomStatus {
   hostName: string
 }
 
+/** A newer release than the running one; `url` downloads this edition's installer. */
+export interface AvailableUpdate {
+  version: string
+  url: string
+  page: string
+}
+
 interface DesktopApi {
   info(): Promise<{ edition: Edition; version: string; hostName: string }>
+  /** Null when up to date, offline, or GitHub could not be asked. */
+  checkForUpdate(): Promise<AvailableUpdate | null>
   openFile(options: FileChoice & { title: string }): Promise<OpenedFile | null>
   saveFile(options: FileChoice & { defaultName: string; text: string }): Promise<string | null>
   savePdf(options: { defaultName: string; html: string }): Promise<string | null>

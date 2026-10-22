@@ -1,0 +1,14 @@
+#!/usr/bin/env node
+// Stands in for wine when the Windows installer is built on Linux. electron-builder
+// runs a first installer under wine only so that it writes out the uninstaller; the
+// uninstaller is read straight out of that file instead, as electron-builder itself
+// does on macOS. Nothing else is ever run under wine for these builds.
+const path = require('node:path')
+const { UninstallerReader } = require(path.join(__dirname, '../../node_modules/app-builder-lib/out/targets/nsis/nsisUtil.js'))
+
+const installer = process.argv[2]
+const uninstaller = path.join(path.dirname(installer), `${path.basename(installer, 'exe')}__uninstaller.exe`)
+UninstallerReader.exec(installer, uninstaller).catch((error) => {
+  console.error(error)
+  process.exit(1)
+})

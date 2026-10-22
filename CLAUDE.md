@@ -67,7 +67,7 @@ npm run build:site       # homepage (website/) with the student lab under /lab/,
 - Work on `develop`. Commit there and push there; never commit or push directly to `main`.
 - `main` only ever receives merges of `develop`, and every push to `main` publishes a GitHub
   release by itself: the *Windows builds* workflow (`.github/workflows/windows.yml`) builds the
-  four Windows files, tags the commit and creates the release.
+  two Windows installers, tags the commit and creates the release.
 - The release takes the version in `package.json`, or the next free patch number when that version
   has been released (1.1.0, then 1.1.1, …; the repository's `package.json` is not changed). For a
   release with new features, raise the version on `develop` first
