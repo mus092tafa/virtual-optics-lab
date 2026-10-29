@@ -25,6 +25,7 @@ import {
   GRATING_MAX_ORDER,
   GRATING_OPEN_FRACTION,
   HENE_WAIST_RADIUS,
+  LENS_MIN_F_NUMBER,
   RAIL_LENGTH,
   SCREEN_HALF_SIZE,
   SLIT_LENGTH,
@@ -497,6 +498,14 @@ export function solveBench(components: readonly BenchComponent[], options: Solve
   const lenses: LensComponent[] = mirror
     ? [{ id: mirror.id, kind: 'lens', x: mirror.x, focalLength: mirror.focalLength, aperture: mirror.aperture, concealed: false }]
     : realLenses
+  // The thin-lens model is paraxial: a lens faster than f/1 has strong
+  // spherical aberration, which the model leaves out.
+  if (realLenses.some((lens) => Math.abs(lens.focalLength) / lens.aperture < LENS_MIN_F_NUMBER)) {
+    notices.push({
+      level: 'warning',
+      text: 'A lens is faster than f/1 (focal length shorter than its aperture). The paraxial thin-lens model does not hold for such a lens: its strong spherical aberration is not modelled. Use a longer focal length or a smaller aperture.',
+    })
+  }
 
   if (apertures.length > 1) {
     return unsupported(

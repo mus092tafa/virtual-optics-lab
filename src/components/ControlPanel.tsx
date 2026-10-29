@@ -1,4 +1,14 @@
-import { GRATING_APERTURE, GRATING_LINE_DENSITIES, HENE_LINES, LENS_FOCAL_LENGTHS, MIRROR_FOCAL_LENGTHS, RAIL_LENGTH } from '../physics/constants'
+import { useState } from 'react'
+import {
+  GRATING_APERTURE,
+  GRATING_LINE_DENSITIES,
+  HENE_LINES,
+  LENS_FOCAL_LENGTH_MAX,
+  LENS_FOCAL_LENGTH_MIN,
+  LENS_FOCAL_LENGTHS,
+  MIRROR_FOCAL_LENGTHS,
+  RAIL_LENGTH,
+} from '../physics/constants'
 import { OBJECT_SHAPES } from '../physics/types'
 import type { BenchComponent, SlitOrientation } from '../physics/types'
 import { cm, degToRad, formatAngle, formatLength, formatNumber, fromMeters, mm, radToDeg, toPerMm } from '../physics/units'
@@ -39,6 +49,43 @@ function OrientationControl({ label = 'Slit orientation', value, onChange }: { l
         ))}
       </div>
     </div>
+  )
+}
+
+/**
+ * A typed focal-length magnitude in cm, committed on Enter or when the field loses focus.
+ * The sign (converging or diverging) stays with the lens type.
+ */
+function FocalLengthInput({ focalLength, onChange }: { focalLength: number; onChange(magnitude: number): void }) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const min = fromMeters(LENS_FOCAL_LENGTH_MIN, 'cm')
+  const max = fromMeters(LENS_FOCAL_LENGTH_MAX, 'cm')
+  const commit = () => {
+    if (draft === null) return
+    const value = Math.abs(Number(draft))
+    // Lens focal lengths are specified to the millimetre.
+    if (draft.trim() !== '' && Number.isFinite(value) && value > 0) onChange(cm(Math.round(Math.min(max, Math.max(min, value)) * 10) / 10))
+    setDraft(null)
+  }
+  return (
+    <span className="number-field">
+      <input
+        type="number"
+        aria-label="Focal length in cm"
+        title={`Type a focal length between ${min} and ${max} cm`}
+        min={min}
+        max={max}
+        step={0.1}
+        value={draft ?? Number(fromMeters(Math.abs(focalLength), 'cm').toFixed(1))}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={commit}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') commit()
+          if (event.key === 'Escape') setDraft(null)
+        }}
+      />
+      cm
+    </span>
   )
 }
 
@@ -155,6 +202,11 @@ export function ControlPanel() {
                         </button>
                       )
                     })}
+                    <FocalLengthInput
+                      key={component.id}
+                      focalLength={component.focalLength}
+                      onChange={(magnitude) => patch({ focalLength: Math.sign(component.focalLength) * magnitude, concealed: false })}
+                    />
                   </div>
                 )}
               </div>

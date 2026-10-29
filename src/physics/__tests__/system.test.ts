@@ -15,6 +15,25 @@ const lens = (x: number, f: number, id = 'lens'): BenchComponent => ({
 const object = (x: number): BenchComponent => ({ id: 'object', kind: 'object', x, shape: 'arrow', height: mm(20), letter: 'F' })
 const screen = (x: number): BenchComponent => ({ id: 'screen', kind: 'screen', x })
 
+describe('bench solver: lens focal length', () => {
+  it('accepts any typed focal length (f = 12.5, do = 30 -> di = 21.43, m = −0.714)', () => {
+    const s = solveBench([lamp(cm(5)), object(cm(15)), lens(cm(45), cm(12.5)), screen(cm(70))], options)
+    const stage = s.imaging!.sequence!.stages[0]
+    const di = 1 / (1 / cm(12.5) - 1 / cm(30))
+    expect(stage.imageDistance).toBeCloseTo(di, 12)
+    expect(s.imaging!.sequence!.magnification).toBeCloseTo(-di / cm(30), 12)
+  })
+  it('reports a lens faster than f/1 as outside the paraxial model', () => {
+    const fast = (f: number) =>
+      solveBench([lamp(cm(5)), object(cm(15)), lens(cm(45), f), screen(cm(70))], options).notices.some((n) => n.text.includes('faster than f/1'))
+    // D = 40 mm: f/1 at |f| = 4 cm.
+    expect(fast(cm(3))).toBe(true)
+    expect(fast(-cm(3))).toBe(true)
+    expect(fast(cm(4))).toBe(false)
+    expect(fast(cm(10))).toBe(false)
+  })
+})
+
 describe('bench solver: image formation on the screen', () => {
   const setup = (screenX: number, intensity = 1) =>
     solveBench([lamp(cm(5), intensity), object(cm(15)), lens(cm(45), cm(10)), screen(screenX)], options)

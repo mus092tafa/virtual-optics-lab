@@ -77,6 +77,12 @@ The solver (`src/physics/optics.ts`) selects the model from what is on the bench
   rotated by 180°.
 - Assumptions: thin lenses, paraxial rays (no aberrations), geometric optics (no diffraction at the
   lens aperture), a uniformly lit diffusing object.
+- Focal length: chosen from the stock lenses (5, 10, 15, 20, 30 cm) or typed in, with |f| from 2 cm
+  to 200 cm (the sign follows the lens type).
+- Limit: the paraxial model needs a slow lens. When a lens on the light path is faster than f/1
+  (|f| < D, D the aperture diameter) the solver reports that the thin-lens model does not hold: its
+  spherical aberration is not modelled. The stock lenses at the largest aperture (50 mm) are f/1 or
+  slower and never trigger the warning.
 
 ### Screen focus
 

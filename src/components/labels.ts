@@ -31,7 +31,7 @@ export function componentCaption(component: BenchComponent, showTheory: boolean)
     case 'tungsten':
       return `Tungsten ${Math.round(component.intensity * 100)}%`
     case 'lens':
-      return component.concealed && !showTheory ? 'Lens f = ?' : `Lens f = ${formatLength(component.focalLength, 'cm', 0)}`
+      return component.concealed && !showTheory ? 'Lens f = ?' : `Lens f = ${formatLength(component.focalLength, 'cm', Number.isInteger(Number(fromMeters(component.focalLength, 'cm').toFixed(1))) ? 0 : 1)}`
     case 'singleSlit':
       return `Slit a = ${formatLength(component.width, 'mm', 3)}`
     case 'doubleSlit':

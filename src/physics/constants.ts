@@ -47,6 +47,11 @@ export const WHITE_LIGHT_REFERENCE_WAVELENGTH = nm(550)
 
 // --- Lenses ----------------------------------------------------------------
 export const LENS_FOCAL_LENGTHS: readonly number[] = [cm(5), cm(10), cm(15), cm(20), cm(30)]
+/** Range of focal-length magnitudes a student may type in for a lens. */
+export const LENS_FOCAL_LENGTH_MIN = cm(2)
+export const LENS_FOCAL_LENGTH_MAX = cm(200)
+/** Slowest f-number |f|/D below which the paraxial thin-lens model is reported as out of range. */
+export const LENS_MIN_F_NUMBER = 1
 export const DEFAULT_LENS_APERTURE = mm(40)
 
 // --- Spherical mirrors -----------------------------------------------------
